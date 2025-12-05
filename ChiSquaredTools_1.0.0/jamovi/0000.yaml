@@ -6,21 +6,26 @@ jms: '1.0'
 authors:
   - Gianmarco Alberti
 maintainer: Gianmarco Alberti <gianmarcoalberti@gmail.com>
-date: '2025-11-18'
+date: '2025-11-25'
 type: R
 description: >-
   Comprehensive toolkit for chi-squared analysis of contingency tables. Includes
   five analytical facilities: (1) Chi-squared testing with traditional, (N-1)/N
-  adjusted, permutation, and Monte Carlo methods; (2) Post-hoc analysis with
-  eight cell-level metrics including standardised residuals, adjusted
-  standardised residuals, Quetelet Index, IJ association factor, PEM with
-  bootstrap confidence intervals, and median polish residuals; (3) Association
-  measures with over 20 coefficients organised by statistical foundation; (4)
-  Hierarchical clustering using Ward's method with chi-squared distance; (5)
-  Stratified analysis of 2x2 tables with Cochran-Mantel-Haenszel test for
-  conditional independence and Mantel-Haenszel and Breslow-Day-Tarone tests for
-  homogeneity of odds ratios. Features toggleable method explanations, automatic
-  significance highlighting, and proper academic citations.
+  adjusted, permutation, Monte Carlo, and M test (maximum adjusted residual)
+  methods; (2) Post-hoc analysis with cell-level metrics including standardised
+  residuals, moment-corrected standardised residuals, adjusted standardised
+  residuals, Quetelet Index, IJ association factor, backwards-stepping outlier
+  detection, PEM with bootstrap confidence intervals, median polish residuals
+  (standardised and adjusted), Goodman-Kruskal residuals, and Difference in
+  Estimated Proportions (DEP); (3) Association measures with over 20
+  coefficients organised by statistical foundation, including chi-squared-based,
+  margin-free, and PRE measures; (4) Hierarchical clustering using Ward's method
+  with chi-squared distance and significance testing; (5) Stratified analysis
+  with Cochran-Mantel-Haenszel test for conditional independence and log-linear
+  homogeneity test, supporting any R×C table dimensions. Features toggleable
+  method explanations with rationale and usage guidance, automatic significance
+  highlighting, forest and trajectory plots, diagnostic decision trees, and
+  proper academic citations.
 analyses:
   - title: Chi-Squared Test of Independence
     name: chisqtest
