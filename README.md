@@ -98,7 +98,8 @@ If you use this module in your research or teaching, please cite:
 
 ## Related Resources
 
-- **chisquare**: The author's CRAN package providing the underlying statistical functions
+- **chisquare**: The author's CRAN package providing some underlying statistical functions
+- **stratastats**: The author's CRAN package providing some underlying statistical functions
 - **From Data to Insights: A Beginner's Guide toe Cross-Tabulation Analysis** (Chapman & Hall, 2024. ISBN 9781032720388)
 
 ## Licence
