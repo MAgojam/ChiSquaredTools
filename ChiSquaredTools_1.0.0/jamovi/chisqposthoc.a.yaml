@@ -1,0 +1,308 @@
+---
+name: chisqposthoc
+title: Chi-Squared Post-Hoc Analysis
+menuGroup: Chi² Tools
+menuTitle: Post-Hoc Analysis
+version: '1.0.0'
+jas: '1.2'
+description:
+    main: |
+        Comprehensive post-hoc analysis for chi-squared tests of independence.
+        
+        Provides multiple cell-level metrics to identify patterns of association:
+        
+        Symmetric measures (no assumed directionality):
+        - Standardised residuals (with optional Šidák correction)
+        - Moment-corrected standardised residuals (with optional Šidák correction)
+        - Adjusted standardised residuals (with optional Šidák correction)
+        - Quetelet Index
+        - IJ association factor
+        - Backwards-stepping outlier detection (Simonoff 1988)
+        - PEM (Percentage of Maximum deviation from independence)
+        - Standardised median polish residuals
+        - Adjusted standardised median polish residuals
+        
+        Directional measures (assume predictor → response structure):
+        - Goodman-Kruskal residuals
+        - Dependence Evaluator Proportion (DEP)
+        
+        Significant positive values are highlighted in red, negative with blue.
+        Significance tables automatically identify attraction/repulsion patterns.
+        
+    R:
+        dontrun: false
+        usage: |
+            # Example with Titanic data
+            data('Titanic')
+            titanic_df <- as.data.frame(Titanic)
+            titanic_expanded <- titanic_df[rep(seq_len(nrow(titanic_df)), 
+                                               titanic_df$Freq), 1:4]
+            
+            chisqposthoc(
+                data = titanic_expanded,
+                rows = 'Class',
+                cols = 'Survived',
+                stdres = TRUE,
+                pem = TRUE,
+                sidakCorrection = TRUE
+            )
+
+completeWhenFilled: true
+
+options:
+    - name: data
+      type: Data
+      description:
+          R: the data as a data frame
+
+    - name: rows
+      title: Row Variable
+      type: Variable
+      suggested:
+        - nominal
+        - ordinal
+      permitted:
+        - factor
+      description:
+          R: >
+            a string naming the variable for rows in the contingency table
+            (must be a factor)
+
+    - name: cols
+      title: Column Variable
+      type: Variable
+      suggested:
+        - nominal
+        - ordinal
+      permitted:
+        - factor
+      description:
+          R: >
+            a string naming the variable for columns in the contingency table
+            (must be a factor)
+
+    - name: counts
+      title: Counts (optional)
+      type: Variable
+      suggested:
+        - continuous
+      description:
+          R: >
+            optional variable containing frequency counts for wide-format data.
+            If not provided, data are assumed to be in long format (one row per case).
+            The variable will be treated as numeric frequencies.
+
+    - name: stdres
+      title: Standardised Residuals
+      type: Bool
+      default: false
+      description:
+          R: >
+            TRUE or FALSE (default: FALSE), compute standardised residuals
+
+    - name: momcorrstdres
+      title: Moment-Corrected Standardised Residuals
+      type: Bool
+      default: false
+      description:
+          R: >
+            TRUE or FALSE (default: FALSE), compute moment-corrected standardised residuals
+
+    - name: adjstdres
+      title: Adjusted Standardised Residuals
+      type: Bool
+      default: false
+      description:
+          R: >
+            TRUE or FALSE (default: FALSE), compute adjusted standardised residuals
+
+    - name: quetelet
+      title: Quetelet Index
+      type: Bool
+      default: false
+      description:
+          R: >
+            TRUE or FALSE (default: FALSE), compute Quetelet Index
+
+    - name: ij
+      title: IJ Association Factor
+      type: Bool
+      default: false
+      description:
+          R: >
+            TRUE or FALSE (default: FALSE), compute IJ association factor
+
+    - name: bsOutlier
+      title: Backwards-Stepping Outlier Detection
+      type: Bool
+      default: false
+      description:
+          R: >
+            TRUE or FALSE (default: FALSE), perform backwards-stepping outlier
+            detection using deleted residuals and G² drop statistics.
+            Identifies cells that deviate significantly from independence,
+            with protection against masking and swamping effects.
+            Method from Simonoff (1988).
+
+    - name: bsKmax
+      title: Maximum Outliers to Test (k_max, cell count)
+      type: Integer
+      min: 1
+      max: 100
+      default: 5
+      description:
+          R: >
+            maximum number of potential outlier cells to test in backwards-stepping
+            procedure (default: 5). Simonoff (1988) suggests 20-30% of cells.
+            Higher values increase computation time but do not inflate false
+            positive rates due to Bonferroni correction.
+
+    - name: pem
+      title: PEM / Sakoda's D Local
+      type: Bool
+      default: false
+      description:
+          R: >
+            TRUE or FALSE (default: FALSE), compute PEM (Percentage of Maximum deviation)
+            with bootstrap confidence intervals. PEM is mathematically equivalent to
+            Sakoda's cell-level index D_ij, expressed as a percentage rather than proportion.
+
+    - name: medpolish
+      title: Standardised Median Polish Residuals
+      type: Bool
+      default: false
+      description:
+          R: >
+            TRUE or FALSE (default: FALSE), compute standardised median polish residuals
+
+    - name: adjmedpolish
+      title: Adjusted Standardised Median Polish Residuals
+      type: Bool
+      default: false
+      description:
+          R: >
+            TRUE or FALSE (default: FALSE), compute adjusted standardised median polish residuals
+
+    - name: gkres
+      title: Goodman-Kruskal Residuals
+      type: Bool
+      default: false
+      description:
+          R: >
+            TRUE or FALSE (default: FALSE), compute Goodman-Kruskal residuals.
+            These residuals measure how knowing the predictor category changes the
+            probability of each response category relative to its marginal probability.
+            Two tables are produced: one treating columns as predictor (rows as response),
+            one treating rows as predictor (columns as response).
+
+    - name: dep
+      title: Dependence Evaluator Proportion (DEP)
+      type: Bool
+      default: false
+      description:
+          R: >
+            TRUE or FALSE (default: FALSE), compute DEP (Dependence Evaluator Proportion).
+            This measure requires designating one column category as the outcome of interest
+            and computes a normalised probability difference for each row category.
+
+    - name: depOutcome
+      title: Outcome Category (for DEP)
+      type: Level
+      variable: (cols)
+      description:
+          R: >
+            the column category to treat as the outcome of interest for DEP analysis.
+            Levels are populated from the column variable.
+
+    - name: sidakCorrection
+      title: Apply Šidák correction (for std./moment-corr./adj. std. residuals)
+      type: Bool
+      default: false
+      description:
+          R: >
+            TRUE or FALSE (default: FALSE), apply Šidák correction to 
+            standardised, moment-corrected standardised, and adjusted standardised residual significance thresholds
+
+    - name: confLevel
+      title: Confidence Level (for PEM)
+      type: Number
+      min: 0.5
+      max: 0.999
+      default: 0.95
+      description:
+          R: >
+            confidence level for PEM bootstrap confidence intervals (default: 0.95)
+
+    - name: bootstrapReps
+      title: Bootstrap Replications (for PEM)
+      type: Integer
+      min: 100
+      max: 10000
+      default: 999
+      description:
+          R: >
+            number of bootstrap replications for PEM confidence intervals
+            (default: 2000)
+
+    - name: seed
+      title: Random Seed
+      type: Integer
+      min: 1
+      max: 999999
+      default: 123
+      description:
+          R: >
+            random seed for reproducibility (default: 123)
+
+    - name: showSignificanceTables
+      title: Show significance summary tables
+      type: Bool
+      default: false
+      description:
+          R: >
+            TRUE or FALSE (default: FALSE), display tables summarising significant
+            positive, negative, and non-significant cell patterns
+
+    - name: showPemPlot
+      title: Show PEM forest plot
+      type: Bool
+      default: false
+      description:
+          R: >
+            TRUE or FALSE (default: FALSE), display a diverging bar chart
+            of PEM values with bootstrap confidence intervals, sorted by magnitude
+    
+    - name: pemPlotFilter
+      title: PEM plot filter
+      type: List
+      options:
+        - name: all
+          title: All cells
+        - name: sigOnly
+          title: Significant only
+        - name: nonsigOnly
+          title: Non-significant only
+      default: all
+      description:
+          R: >
+            filter which cells to display in the PEM forest plot:
+            'all' (default), 'sigOnly', or 'nonsigOnly'
+    
+    - name: showDepPlot
+      title: Show DEP forest plot
+      type: Bool
+      default: false
+      description:
+          R: >
+            TRUE or FALSE (default: FALSE), display a forest plot of DEP values
+            with significance bounds derived from chi-squared critical values
+            
+    - name: showMethodInfo
+      title: Show detailed method explanations
+      type: Bool
+      default: false
+      description:
+          R: >
+            TRUE or FALSE (default: FALSE), display detailed methodological 
+            explanations for all selected metrics
+...

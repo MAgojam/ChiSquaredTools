@@ -1,0 +1,171 @@
+---
+name: chisqtest
+title: Chi-Squared Test of Independence
+menuGroup: Chi² Tools
+menuTitle: Test of Independence
+version: '1.0.0'
+jas: '1.2'
+description:
+    main: |
+        Chi-squared test of independence with multiple testing methods:
+        - Traditional chi-squared test
+        - (N-1) adjusted chi-squared test
+        - Permutation-based test
+        - Monte Carlo test (with Phipson & Smyth 2010 p-value computation)
+        
+        Includes method selection guidance based on table characteristics,
+        optional distribution plots, and comprehensive method annotations.
+        
+    R:
+        dontrun: false
+        usage: |
+            # Example with Titanic data
+            data('Titanic')
+            titanic_df <- as.data.frame(Titanic)
+            titanic_expanded <- titanic_df[rep(seq_len(nrow(titanic_df)), 
+                                               titanic_df$Freq), 1:4]
+            
+            chisqtest(
+                data = titanic_expanded,
+                rows = 'Class',
+                cols = 'Survived',
+                traditionalTest = TRUE,
+                n1Test = TRUE,
+                permTest = TRUE,
+                monteCarloTest = TRUE
+            )
+
+completeWhenFilled: true
+
+options:
+    - name: data
+      type: Data
+      description:
+          R: the data as a data frame
+
+    - name: rows
+      title: Row Variable
+      type: Variable
+      suggested:
+        - nominal
+        - ordinal
+      permitted:
+        - factor
+      description:
+          R: >
+            a string naming the variable for rows in the contingency table
+            (must be a factor)
+
+    - name: cols
+      title: Column Variable
+      type: Variable
+      suggested:
+        - nominal
+        - ordinal
+      permitted:
+        - factor
+      description:
+          R: >
+            a string naming the variable for columns in the contingency table
+            (must be a factor)
+
+    - name: counts
+      title: Counts (optional)
+      type: Variable
+      suggested:
+        - continuous
+      description:
+          R: >
+            optional variable containing frequency counts for wide-format data.
+            If not provided, data are assumed to be in long format (one row per case).
+
+    - name: traditionalTest
+      title: Traditional Chi-Squared Test
+      type: Bool
+      default: true
+      description:
+          R: >
+            TRUE or FALSE (default: TRUE), compute traditional chi-squared test
+
+    - name: n1Test
+      title: (N-1) Adjusted Chi-Squared Test
+      type: Bool
+      default: false
+      description:
+          R: >
+            TRUE or FALSE (default: FALSE), compute (N-1)/N adjusted chi-squared test
+
+    - name: permTest
+      title: Permutation Test
+      type: Bool
+      default: false
+      description:
+          R: >
+            TRUE or FALSE (default: FALSE), compute permutation-based test
+
+    - name: monteCarloTest
+      title: Monte Carlo Test
+      type: Bool
+      default: false
+      description:
+          R: >
+            TRUE or FALSE (default: FALSE), compute Monte Carlo test
+
+    - name: mTest
+      title: M Test
+      type: Bool
+      default: false
+      description:
+          R: >
+            TRUE or FALSE (default: FALSE), compute M test based on maximum
+            adjusted residual (Fuchs & Kenett, 1980). Uses Bonferroni correction
+            for multiple comparisons. May have higher power than chi-squared when
+            association is driven by a single outlying cell.
+
+    - name: nPerms
+      title: Number of Permutations/Monte Carlo Replications
+      type: Integer
+      min: 99
+      max: 9999
+      default: 999
+      description:
+          R: >
+            number of permutations or Monte Carlo replications (default: 999)
+
+    - name: seed
+      title: Random Seed
+      type: Integer
+      min: 1
+      max: 999999
+      default: 123
+      description:
+          R: >
+            random seed for reproducibility (default: 123)
+
+    - name: showMethodGuidance
+      title: Show method selection guidance
+      type: Bool
+      default: true
+      description:
+          R: >
+            TRUE or FALSE (default: TRUE), display guidance for selecting
+            an appropriate testing method based on table characteristics
+
+    - name: showDistributions
+      title: Show distribution plots
+      type: Bool
+      default: false
+      description:
+          R: >
+            TRUE or FALSE (default: FALSE), plot distributions of permutation
+            and Monte Carlo test statistics
+
+    - name: showMethodInfo
+      title: Show detailed method explanations
+      type: Bool
+      default: false
+      description:
+          R: >
+            TRUE or FALSE (default: FALSE), display detailed methodological 
+            explanations for all selected tests
+...

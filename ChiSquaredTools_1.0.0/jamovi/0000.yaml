@@ -1,0 +1,83 @@
+---
+title: Chi-Squared Analysis Tools
+name: ChiSquaredTools
+version: 1.0.0
+jms: '1.0'
+authors:
+  - Gianmarco Alberti
+maintainer: Gianmarco Alberti <gianmarcoalberti@gmail.com>
+date: '2025-11-18'
+type: R
+description: >-
+  Comprehensive toolkit for chi-squared analysis of contingency tables. Includes
+  five analytical facilities: (1) Chi-squared testing with traditional, (N-1)/N
+  adjusted, permutation, and Monte Carlo methods; (2) Post-hoc analysis with
+  eight cell-level metrics including standardised residuals, adjusted
+  standardised residuals, Quetelet Index, IJ association factor, PEM with
+  bootstrap confidence intervals, and median polish residuals; (3) Association
+  measures with over 20 coefficients organised by statistical foundation; (4)
+  Hierarchical clustering using Ward's method with chi-squared distance; (5)
+  Stratified analysis of 2x2 tables with Cochran-Mantel-Haenszel test for
+  conditional independence and Mantel-Haenszel and Breslow-Day-Tarone tests for
+  homogeneity of odds ratios. Features toggleable method explanations, automatic
+  significance highlighting, and proper academic citations.
+analyses:
+  - title: Chi-Squared Test of Independence
+    name: chisqtest
+    ns: ChiSquaredTools
+    category: analyses
+    menuTitle: Test of Independence
+    description: |-
+      Chi-squared test of independence with multiple testing methods:
+      - Traditional chi-squared test
+      - (N-1) adjusted chi-squared test
+      - Permutation-based test
+      - Monte Carlo test (with Phipson & Smyth 2010 p-value computation)
+    menuGroup: Chi² Tools
+  - title: Measures of Association and Effect Sizes
+    name: chisqassoc
+    ns: ChiSquaredTools
+    category: analyses
+    menuTitle: Association & Effect Sizes
+    description: >-
+      Comprehensive measures of categorical association organised by statistical
+      foundation.
+    menuGroup: Chi² Tools
+  - title: Chi-Squared Post-Hoc Analysis
+    name: chisqposthoc
+    ns: ChiSquaredTools
+    category: analyses
+    menuTitle: Post-Hoc Analysis
+    description: Comprehensive post-hoc analysis for chi-squared tests of independence.
+    menuGroup: Chi² Tools
+  - title: Contingency Table Row/Column Clustering
+    name: chisqcluster
+    ns: ChiSquaredTools
+    category: analyses
+    menuTitle: Row/Column Clustering
+    description: |-
+      Hierarchical clustering analysis for contingency table rows and columns 
+      using the Greenacre (2017) method.
+    menuGroup: Chi² Tools
+  - title: Stratified Analysis (2×2×K)
+    name: chisqstrata2x2
+    ns: ChiSquaredTools
+    category: analyses
+    menuGroup: Chi² Tools
+    menuTitle: Stratified Analysis (2×2×K)
+    description: |-
+      Comprehensive stratified analysis of 2×2 contingency tables for assessing
+      conditional independence and homogeneity of odds ratios across strata.
+  - title: Stratified Analysis (R×C×K)
+    name: chisqstrataRxC
+    ns: ChiSquaredTools
+    category: analyses
+    menuGroup: Chi² Tools
+    menuTitle: Stratified Analysis (R×C×K)
+    description: |-
+      Stratified analysis of R×C contingency tables for assessing conditional 
+      independence and homogeneity of association across strata.
+usesNative: true
+minApp: 1.0.8
+
+...

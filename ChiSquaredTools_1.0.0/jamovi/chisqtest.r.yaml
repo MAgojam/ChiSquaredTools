@@ -1,0 +1,99 @@
+---
+name: chisqtest
+title: Chi-Squared Test of Independence
+jrs: '1.1'
+
+items:
+    - name: crosstabTable
+      title: Observed Contingency Table
+      type: Table
+      clearWith:
+        - rows
+        - cols
+      columns: []
+
+    - name: expectedTable
+      title: Expected Frequencies
+      type: Table
+      clearWith:
+        - rows
+        - cols
+      columns: []
+
+    - name: methodGuidance
+      title: Method Selection Guidance
+      type: Html
+      visible: (showMethodGuidance)
+
+    - name: testResults
+      title: Test Results
+      type: Table
+      clearWith:
+        - rows
+        - cols
+        - traditionalTest
+        - n1Test
+        - permTest
+        - monteCarloTest
+        - nPerms
+        - seed
+      columns:
+        - name: method
+          title: 'Method'
+          type: text
+        - name: statistic
+          title: 'χ²'
+          type: number
+        - name: df
+          title: 'df'
+          type: integer
+        - name: mstat
+          title: 'M'
+          type: number
+        - name: pvalue
+          title: 'p'
+          type: number
+          format: zto,pvalue
+
+    - name: permDistPlot
+      title: Permutation Test Distribution
+      type: Image
+      visible: (showDistributions && permTest)
+      width: 500
+      height: 400
+      renderFun: .plotPermDist
+      clearWith:
+        - rows
+        - cols
+        - nPerms
+        - seed
+
+    - name: mcDistPlot
+      title: Monte Carlo Test Distribution
+      type: Image
+      visible: (showDistributions && monteCarloTest)
+      width: 500
+      height: 400
+      renderFun: .plotMCDist
+      clearWith:
+        - rows
+        - cols
+        - nPerms
+        - seed
+
+    - name: methodInfo
+      title: Method Details
+      type: Html
+      visible: (showMethodInfo)
+      clearWith:
+        - rows
+        - cols
+        - traditionalTest
+        - n1Test
+        - permTest
+        - monteCarloTest
+
+    - name: legendNote
+      title: References
+      type: Html
+...

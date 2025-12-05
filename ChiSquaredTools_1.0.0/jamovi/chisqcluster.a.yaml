@@ -1,0 +1,116 @@
+---
+name: chisqcluster
+title: Contingency Table Row/Column Clustering
+menuGroup: Chi² Tools
+menuTitle: Row/Column Clustering
+version: '1.0.0'
+jas: '1.2'
+description:
+    main: |
+        Hierarchical clustering analysis for contingency table rows and columns 
+        using the Greenacre (2017) method.
+        
+        Provides:
+        - Agglomerative clustering with Ward linkage criterion
+        - Critical chi-square values for optimal cluster identification
+        - Cluster dendrograms with significance cutoff lines
+        - Detailed merging sequence statistics
+        - Identified significant row and column groups
+        
+        The method uses chi-square distance to identify homogeneous groups of rows 
+        (or columns) that can be merged without significantly reducing the table's 
+        association. Merging continues until the chi-square statistic falls below 
+        a critical threshold adjusted for multiple comparisons (Greenacre 2017, 
+        Exhibit A.1, p.254).
+        
+    R:
+        dontrun: false
+        usage: |
+            # Example with contingency table
+            data <- data.frame(
+              "16-24" = c(37, 13, 33, 16, 8),
+              "25-34" = c(39, 23, 69, 31, 16),
+              "35-49" = c(45, 33, 67, 34, 21),
+              "50+" = c(64, 38, 56, 22, 35)
+            )
+            rownames(data) <- c("A", "B", "C", "D", "E")
+            
+            chisqcluster(
+                data = data,
+                rows = 'Category',
+                cols = 'AgeGroup',
+                plotRowDendro = TRUE,
+                plotColDendro = TRUE
+            )
+
+completeWhenFilled: true
+
+options:
+    - name: data
+      type: Data
+      description:
+          R: the data as a data frame
+
+    - name: rows
+      title: Row Variable
+      type: Variable
+      suggested:
+        - nominal
+        - ordinal
+      permitted:
+        - factor
+      description:
+          R: >
+            a string naming the variable for rows in the contingency table
+            (must be a factor)
+
+    - name: cols
+      title: Column Variable
+      type: Variable
+      suggested:
+        - nominal
+        - ordinal
+      permitted:
+        - factor
+      description:
+          R: >
+            a string naming the variable for columns in the contingency table
+            (must be a factor)
+
+    - name: counts
+      title: Counts (optional)
+      type: Variable
+      suggested:
+        - continuous
+      description:
+          R: >
+            optional variable containing frequency counts for wide-format data.
+            If not provided, data are assumed to be in long format (one row per case).
+
+    - name: plotRowDendro
+      title: Plot row dendrogram
+      type: Bool
+      default: false
+      description:
+          R: >
+            TRUE or FALSE (default), display hierarchical clustering dendrogram 
+            for table rows with critical value cutoff line
+
+    - name: plotColDendro
+      title: Plot column dendrogram
+      type: Bool
+      default: false
+      description:
+          R: >
+            TRUE or FALSE (default), display hierarchical clustering dendrogram 
+            for table columns with critical value cutoff line
+
+    - name: showMethodInfo
+      title: Show detailed method explanations
+      type: Bool
+      default: false
+      description:
+          R: >
+            TRUE or FALSE (default), display detailed methodological 
+            explanations for the clustering procedure
+...

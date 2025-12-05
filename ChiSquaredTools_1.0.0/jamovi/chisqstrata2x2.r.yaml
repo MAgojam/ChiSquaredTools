@@ -1,0 +1,236 @@
+---
+name: chisqstrata2x2
+title: Stratified Analysis (2×2×K)
+jrs: '1.1'
+
+items:
+    - name: partialTablesGroup
+      title: Partial Tables (Strata)
+      type: Array
+      template:
+        title: Partial Table
+        type: Table
+        columns: []
+      clearWith:
+        - rows
+        - cols
+        - strata
+        - counts
+        - rowRef
+        - colRef
+
+    - name: marginalTableHeader
+      title: ''
+      type: Html
+      visible: true
+
+    - name: marginalTable
+      type: Table
+      clearWith:
+        - rows
+        - cols
+        - strata
+        - counts
+      columns: []
+
+    - name: marginalORAnnotation
+      title: ''
+      type: Html
+      visible: (showORAnnotation)
+      clearWith:
+        - rows
+        - cols
+        - strata
+        - counts
+        - rowRef
+        - colRef
+
+    - name: analysisResultsHeader
+      title: ''
+      type: Html
+      visible: true
+
+    - name: oddsRatioTable
+      title: Odds Ratios and Confidence Intervals
+      type: Table
+      clearWith:
+        - rows
+        - cols
+        - strata
+        - counts
+        - rowRef
+        - colRef
+      columns:
+        - name: stratum
+          title: 'Table'
+          type: text
+        - name: or
+          title: 'Odds Ratio'
+          type: number
+        - name: ciLower
+          title: 'Lower'
+          superTitle: '95% CI'
+          type: number
+        - name: ciUpper
+          title: 'Upper'
+          superTitle: '95% CI'
+          type: number
+
+    - name: partialChiSqTable
+      title: Chi-Squared Tests
+      type: Table
+      visible: (showPartialChiSq)
+      clearWith:
+        - rows
+        - cols
+        - strata
+        - counts
+      columns:
+        - name: stratum
+          title: 'Table'
+          type: text
+        - name: chisq
+          title: 'χ²'
+          type: number
+        - name: df
+          title: 'df'
+          type: integer
+        - name: pvalue
+          title: 'p'
+          type: number
+          format: zto,pvalue
+
+    - name: cmhTestTable
+      title: Cochran-Mantel-Haenszel Test for Conditional Independence
+      type: Table
+      clearWith:
+        - rows
+        - cols
+        - strata
+        - counts
+      columns:
+        - name: test
+          title: 'Test'
+          type: text
+        - name: statistic
+          title: 'Statistic'
+          type: number
+        - name: df
+          title: 'df'
+          type: integer
+        - name: pvalue
+          title: 'p'
+          type: number
+          format: zto,pvalue
+        - name: commonOR
+          title: 'Common OR'
+          type: number
+        - name: commonCILower
+          title: 'Lower'
+          superTitle: '95% CI'
+          type: number
+        - name: commonCIUpper
+          title: 'Upper'
+          superTitle: '95% CI'
+          type: number
+
+    - name: homogeneityTable
+      title: Tests for Homogeneity of Odds Ratios
+      type: Table
+      clearWith:
+        - rows
+        - cols
+        - strata
+        - counts
+      columns:
+        - name: test
+          title: 'Test'
+          type: text
+        - name: statistic
+          title: 'Statistic'
+          type: number
+        - name: df
+          title: 'df'
+          type: integer
+        - name: pvalue
+          title: 'p'
+          type: number
+          format: zto,pvalue
+
+    - name: interpretationGuideHeader
+      title: ''
+      type: Html
+      visible: (showInterpretation)
+
+    - name: interpretationNote
+      title: Interpretation
+      type: Html
+      visible: (showInterpretation)
+      clearWith:
+        - rows
+        - cols
+        - strata
+        - counts
+        - rowRef
+        - colRef
+
+    - name: forestPlot
+      title: Forest Plot of Odds Ratios
+      type: Image
+      visible: (showForestPlot)
+      width: 700
+      height: 400
+      renderFun: .forestPlot
+      requiresData: true
+      clearWith:
+        - rows
+        - cols
+        - strata
+        - counts
+        - rowRef
+        - colRef
+
+    - name: trajectoryPlot
+      title: Odds Ratio Trajectory
+      type: Image
+      visible: (showTrajectoryPlot && strataOrdered)
+      width: 700
+      height: 450
+      renderFun: .trajectoryPlot
+      requiresData: true
+      clearWith:
+        - rows
+        - cols
+        - strata
+        - counts
+        - rowRef
+        - colRef
+        - strataOrdered
+
+    - name: diagnosticTree
+      title: Diagnostic Decision Path
+      type: Image
+      visible: (showDiagnosticTree)
+      width: 800
+      height: 500
+      renderFun: .diagnosticTree
+      requiresData: true
+      clearWith:
+        - rows
+        - cols
+        - strata
+        - counts
+
+    - name: methodInfo
+      title: Method Details
+      type: Html
+      visible: (showMethodInfo)
+      clearWith:
+        - rows
+        - cols
+        - strata
+
+    - name: legendNote
+      title: References
+      type: Html
+...

@@ -1,0 +1,345 @@
+---
+name: chisqposthoc
+title: Chi-Squared Post-Hoc Analysis
+jrs: '1.1'
+
+items:
+    - name: crosstabTable
+      title: Observed Contingency Table
+      type: Table
+      clearWith:
+        - rows
+        - cols
+      columns: []
+
+    - name: stdresTable
+      title: Standardised Residuals
+      type: Table
+      visible: (stdres)
+      clearWith:
+        - rows
+        - cols
+        - sidakCorrection
+      columns: []
+
+    - name: stdresNote
+      title: Interpretation
+      type: Html
+      visible: (stdres)
+
+    - name: momcorrstdresTable
+      title: Moment-Corrected Standardised Residuals
+      type: Table
+      visible: (momcorrstdres)
+      clearWith:
+        - rows
+        - cols
+        - sidakCorrection
+      columns: []
+
+    - name: momcorrstdresNote
+      title: Interpretation
+      type: Html
+      visible: (momcorrstdres)
+
+    - name: adjstdresTable
+      title: Adjusted Standardised Residuals
+      type: Table
+      visible: (adjstdres)
+      clearWith:
+        - rows
+        - cols
+        - sidakCorrection
+      columns: []
+
+    - name: adjstdresNote
+      title: Interpretation
+      type: Html
+      visible: (adjstdres)
+
+    - name: queteletTable
+      title: Quetelet Index
+      type: Table
+      visible: (quetelet)
+      clearWith:
+        - rows
+        - cols
+      columns: []
+
+    - name: queteletNote
+      title: Interpretation
+      type: Html
+      visible: (quetelet)
+
+    - name: ijTable
+      title: IJ Association Factor
+      type: Table
+      visible: (ij)
+      clearWith:
+        - rows
+        - cols
+      columns: []
+
+    - name: ijNote
+      title: Interpretation
+      type: Html
+      visible: (ij)
+
+    - name: bsOutlierMatrixTable
+      title: Deleted Residuals (Backwards-Stepping)
+      type: Table
+      visible: (bsOutlier)
+      clearWith:
+        - rows
+        - cols
+        - bsKmax
+      columns: []
+
+    - name: bsOutlierDetailTable
+      title: Backwards-Stepping Identified Cells
+      type: Table
+      visible: (bsOutlier)
+      clearWith:
+        - rows
+        - cols
+        - bsKmax
+      columns:
+        - name: rank
+          title: 'Rank'
+          type: integer
+        - name: cell
+          title: 'Cell'
+          type: text
+        - name: delRes
+          title: 'Deleted Residual'
+          type: number
+        - name: g2Drop
+          title: 'G² Drop'
+          type: number
+        - name: detected
+          title: 'Detected'
+          type: text
+
+    - name: bsOutlierNote
+      title: Interpretation
+      type: Html
+      visible: (bsOutlier)
+
+    - name: pemTable
+      title: PEM with Confidence Intervals
+      type: Table
+      visible: (pem)
+      clearWith:
+        - rows
+        - cols
+        - confLevel
+        - bootstrapReps
+      columns: []
+
+    - name: pemNote
+      title: Interpretation
+      type: Html
+      visible: (pem)
+
+    - name: pemPlot
+      title: PEM Forest Plot
+      type: Image
+      visible: (pem && showPemPlot)
+      width: 700
+      height: 500
+      renderFun: .pemPlot
+      requiresData: true
+      clearWith:
+        - rows
+        - cols
+        - confLevel
+        - bootstrapReps
+        - seed
+        - pemPlotFilter
+
+    - name: medpolishTable
+      title: Standardised Median Polish Residuals
+      type: Table
+      visible: (medpolish)
+      clearWith:
+        - rows
+        - cols
+      columns: []
+
+    - name: medpolishNote
+      title: Interpretation
+      type: Html
+      visible: (medpolish)
+
+    - name: adjmedpolishTable
+      title: Adjusted Standardised Median Polish Residuals
+      type: Table
+      visible: (adjmedpolish)
+      clearWith:
+        - rows
+        - cols
+      columns: []
+
+    - name: adjmedpolishNote
+      title: Interpretation
+      type: Html
+      visible: (adjmedpolish)
+
+    - name: gkresColTable
+      title: Goodman-Kruskal Residuals (Columns as Predictor)
+      type: Table
+      visible: (gkres)
+      clearWith:
+        - rows
+        - cols
+      columns: []
+
+    - name: gkresRowTable
+      title: Goodman-Kruskal Residuals (Rows as Predictor)
+      type: Table
+      visible: (gkres)
+      clearWith:
+        - rows
+        - cols
+      columns: []
+
+    - name: gkresNote
+      title: Interpretation
+      type: Html
+      visible: (gkres)
+
+    - name: depTable
+      title: Dependence Evaluator Proportion (DEP)
+      type: Table
+      visible: (dep)
+      clearWith:
+        - rows
+        - cols
+        - depOutcome
+      columns:
+        - name: rowCat
+          title: 'Independent Category'
+          type: text
+        - name: depOutcome
+          title: 'Dependent Category'
+          type: text
+        - name: depValue
+          title: 'DEP'
+          type: number
+        - name: sigLower
+          title: 'Sig. Lower'
+          type: number
+        - name: sigUpper
+          title: 'Sig. Upper'
+          type: number
+        - name: significance
+          title: 'Significance'
+          type: text
+
+    - name: depNote
+      title: Interpretation
+      type: Html
+      visible: (dep)
+
+    - name: depPlot
+      title: DEP Forest Plot
+      type: Image
+      visible: (dep && showDepPlot)
+      width: 700
+      height: 500
+      renderFun: .depPlot
+      requiresData: true
+      clearWith:
+        - rows
+        - cols
+        - depOutcome
+
+    - name: sigPosTable
+      title: Significant Positive Associations
+      type: Table
+      visible: (showSignificanceTables)
+      clearWith:
+        - rows
+        - cols
+        - metrics
+      columns:
+        - name: rowCat
+          title: 'Row'
+          type: text
+        - name: colCat
+          title: 'Column'
+          type: text
+        - name: metric
+          title: 'Metric'
+          type: text
+        - name: value
+          title: 'Value'
+          type: text
+
+    - name: sigNegTable
+      title: Significant Negative Associations
+      type: Table
+      visible: (showSignificanceTables)
+      clearWith:
+        - rows
+        - cols
+        - metrics
+      columns:
+        - name: rowCat
+          title: 'Row'
+          type: text
+        - name: colCat
+          title: 'Column'
+          type: text
+        - name: metric
+          title: 'Metric'
+          type: text
+        - name: value
+          title: 'Value'
+          type: text
+
+    - name: nonSigTable
+      title: Non-Significant Associations
+      type: Table
+      visible: (showSignificanceTables)
+      clearWith:
+        - rows
+        - cols
+        - metrics
+      columns:
+        - name: rowCat
+          title: 'Row'
+          type: text
+        - name: colCat
+          title: 'Column'
+          type: text
+        - name: metric
+          title: 'Metric'
+          type: text
+        - name: value
+          title: 'Value'
+          type: text
+
+    - name: methodInfo
+      title: Method Details
+      type: Html
+      visible: (showMethodInfo)
+      clearWith:
+        - rows
+        - cols
+        - stdres
+        - momcorrstdres
+        - adjstdres
+        - quetelet
+        - ij
+        - bsOutlier
+        - pem
+        - medpolish
+        - adjmedpolish
+        - gkres
+        - dep
+
+    - name: legendNote
+      title: References
+      type: Html
+...

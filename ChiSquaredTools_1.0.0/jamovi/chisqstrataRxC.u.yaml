@@ -1,0 +1,81 @@
+title: Stratified Analysis (R×C×K)
+name: chisqstrataRxC
+jus: '3.0'
+stage: 0
+compilerMode: tame
+children:
+  - type: VariableSupplier
+    persistentItems: false
+    stretchFactor: 1
+    children:
+      - type: TargetLayoutBox
+        label: Row Variable
+        children:
+          - type: VariablesListBox
+            name: rows
+            maxItemCount: 1
+            isTarget: true
+      - type: TargetLayoutBox
+        label: Column Variable
+        children:
+          - type: VariablesListBox
+            name: cols
+            maxItemCount: 1
+            isTarget: true
+      - type: TargetLayoutBox
+        label: Stratifying Variable
+        children:
+          - type: VariablesListBox
+            name: strata
+            maxItemCount: 1
+            isTarget: true
+      - type: TargetLayoutBox
+        label: Counts (optional)
+        children:
+          - type: VariablesListBox
+            name: counts
+            maxItemCount: 1
+            isTarget: true
+  
+  # --- GROUP: Bootstrap Settings ---
+  - type: LayoutBox
+    margin: large
+    children:
+      - type: Label
+        label: Bootstrap Settings
+        children:
+          - type: TextBox
+            name: nBootstrap
+            format: number
+  
+  # --- GROUP: Visual Summaries ---
+  - type: LayoutBox
+    margin: large
+    children:
+      - type: Label
+        label: Visual Summaries
+        children:
+          - type: CheckBox
+            name: showResiduals
+          - type: CheckBox
+            name: showForestPlot
+          - type: CheckBox
+            name: strataOrdered
+          - type: CheckBox
+            name: showTrajectoryPlot
+            enable: (strataOrdered)
+            style: list-inline
+          - type: CheckBox
+            name: showDiagnosticTree
+  
+  # --- GROUP: Interpretive Guides ---
+  - type: LayoutBox
+    margin: large
+    children:
+      - type: Label
+        label: Interpretive Guides
+        children:
+          - type: CheckBox
+            name: showInterpretation
+          - type: CheckBox
+            name: showMethodInfo

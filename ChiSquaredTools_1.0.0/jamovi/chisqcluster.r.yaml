@@ -1,0 +1,147 @@
+---
+name: chisqcluster
+title: Contingency Table Row/Column Clustering
+jrs: '1.1'
+
+items:
+    - name: crosstabTable
+      title: Observed Contingency Table
+      type: Table
+      clearWith:
+        - rows
+        - cols
+      columns: []
+
+    # ROW CLUSTERING RESULTS
+    - name: rowClusterTable
+      title: Row Merging Sequence
+      type: Table
+      clearWith:
+        - rows
+        - cols
+      columns:
+        - name: step
+          title: 'Step'
+          type: integer
+        - name: itemsMerged
+          title: 'Items Merged'
+          type: text
+        - name: groupsRemaining
+          title: 'Groups After Merge'
+          type: text
+        - name: chiSquare
+          title: 'χ²'
+          type: number
+        - name: reduction
+          title: 'χ² Reduction'
+          type: number
+        - name: reductionPercent
+          title: '% Reduction'
+          type: number
+
+    - name: rowClusterSummary
+      title: Row Clustering Summary
+      type: Html
+
+    - name: rowGroupsTable
+      title: Significant Row Groups
+      type: Table
+      clearWith:
+        - rows
+        - cols
+      columns:
+        - name: groupName
+          title: 'Group'
+          type: text
+        - name: members
+          title: 'Members'
+          type: text
+
+    - name: rowGroupsNote
+      title: ''
+      type: Html
+
+    - name: rowDendro
+      title: Row Clustering Dendrogram
+      type: Image
+      visible: (plotRowDendro)
+      width: 600
+      height: 450
+      renderFun: .plotRowDendro
+      clearWith:
+        - rows
+        - cols
+
+    # COLUMN CLUSTERING RESULTS
+    - name: colClusterTable
+      title: Column Merging Sequence
+      type: Table
+      clearWith:
+        - rows
+        - cols
+      columns:
+        - name: step
+          title: 'Step'
+          type: integer
+        - name: itemsMerged
+          title: 'Items Merged'
+          type: text
+        - name: groupsRemaining
+          title: 'Groups After Merge'
+          type: text
+        - name: chiSquare
+          title: 'χ²'
+          type: number
+        - name: reduction
+          title: 'χ² Reduction'
+          type: number
+        - name: reductionPercent
+          title: '% Reduction'
+          type: number
+
+    - name: colClusterSummary
+      title: Column Clustering Summary
+      type: Html
+
+    - name: colGroupsTable
+      title: Significant Column Groups
+      type: Table
+      clearWith:
+        - rows
+        - cols
+      columns:
+        - name: groupName
+          title: 'Group'
+          type: text
+        - name: members
+          title: 'Members'
+          type: text
+
+    - name: colGroupsNote
+      title: ''
+      type: Html
+
+    - name: colDendro
+      title: Column Clustering Dendrogram
+      type: Image
+      visible: (plotColDendro)
+      width: 600
+      height: 450
+      renderFun: .plotColDendro
+      clearWith:
+        - rows
+        - cols
+
+    # METHOD DETAILS AND REFERENCES
+    - name: methodInfo
+      title: Method Details
+      type: Html
+      visible: (showMethodInfo)
+      clearWith:
+        - rows
+        - cols
+
+    - name: legendNote
+      title: References
+      type: Html
+...

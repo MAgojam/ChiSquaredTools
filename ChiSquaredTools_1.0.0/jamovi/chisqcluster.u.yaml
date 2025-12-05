@@ -1,0 +1,53 @@
+title: Contingency Table Row/Column Clustering
+name: chisqcluster
+jus: '3.0'
+stage: 0
+compilerMode: tame
+children:
+  - type: VariableSupplier
+    persistentItems: false
+    stretchFactor: 1
+    children:
+      - type: TargetLayoutBox
+        label: Row Variable
+        children:
+          - type: VariablesListBox
+            name: rows
+            maxItemCount: 1
+            isTarget: true
+      - type: TargetLayoutBox
+        label: Column Variable
+        children:
+          - type: VariablesListBox
+            name: cols
+            maxItemCount: 1
+            isTarget: true
+      - type: TargetLayoutBox
+        label: Counts (optional)
+        children:
+          - type: VariablesListBox
+            name: counts
+            maxItemCount: 1
+            isTarget: true
+  
+  # --- GROUP: Plot Options ---
+  - type: LayoutBox
+    margin: large
+    children:
+      - type: Label
+        label: Plot Options
+        children:
+          - type: CheckBox
+            name: plotRowDendro
+          - type: CheckBox
+            name: plotColDendro
+  
+  # --- GROUP: Display Options ---
+  - type: LayoutBox
+    margin: large
+    children:
+      - type: Label
+        label: Display Options
+        children:
+          - type: CheckBox
+            name: showMethodInfo

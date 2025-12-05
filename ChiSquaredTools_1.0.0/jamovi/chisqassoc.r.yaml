@@ -1,0 +1,227 @@
+---
+name: chisqassoc
+title: Measures of Association and Effect Sizes
+jrs: '1.1'
+
+items:
+    # 1. OBSERVED CONTINGENCY TABLE (first)
+    - name: crosstabTable
+      title: Observed Contingency Table
+      type: Table
+      clearWith:
+        - rows
+        - cols
+      columns: []
+
+    # 2. CHI-SQUARE-MAXIMISING TABLE (third, after standardised)
+    - name: chisqMaxTable
+      title: Chi-Square-Maximising Table
+      type: Table
+      visible: (showChisqMax)
+      clearWith:
+        - rows
+        - cols
+      columns: []
+    
+    # 3. STANDARDISED TABLE (second, after observed)
+    - name: standardisedTable
+      title: Standardised Contingency Table
+      type: Table
+      visible: (showStandardised)
+      clearWith:
+        - rows
+        - cols
+      columns: []
+
+    # 4. ASSOCIATION MEASURES SUMMARY
+    - name: resultsTable
+      title: Association Measures Summary
+      type: Table
+      clearWith:
+        - rows
+        - cols
+        - confLevel
+        - bootstrapReps
+        - phi
+        - phiSigned
+        - phiCorrected
+        - coleC7
+        - zysnoPhi
+        - contingencyC
+        - cAdjusted
+        - cCorrected
+        - cramersV
+        - vCorrected
+        - vStandardised
+        - vBiasCorrected
+        - cohenW
+        - wHat
+        - wHatCorrected
+        - sakoda
+        - sakodaCorrected
+        - yulesQ
+        - yulesY
+        - oddsRatio
+        - gkLambda
+        - gkLambdaCorrected
+        - gkTau
+      columns:
+        - name: measure
+          title: 'Measure'
+          type: text
+        - name: value
+          title: 'Value'
+          type: number
+        - name: lowerCI
+          title: 'Lower CI'
+          type: number
+        - name: upperCI
+          title: 'Upper CI'
+          type: number
+        - name: pvalue
+          title: 'p'
+          type: number
+          format: zto,pvalue
+        - name: effectSize
+          title: 'Effect Size'
+          type: text
+
+    # 4b. SAKODA LOCAL TABLE
+    - name: sakodaLocalTable
+      title: Sakoda's D (Local) / PEM
+      type: Table
+      visible: (sakodaLocal)
+      clearWith:
+        - rows
+        - cols
+      columns: []
+
+    - name: sakodaLocalNote
+      title: ''
+      type: Html
+      visible: (sakodaLocal)
+    
+    # 5. PAIRWISE COMPARISONS (for tables > 2x2 only)
+    - name: pairwiseTable
+      title: Pairwise Comparisons
+      type: Table
+      visible: false
+      clearWith:
+        - rows
+        - cols
+        - confLevel
+        - yulesQ
+        - yulesY
+        - oddsRatio
+      columns:
+        - name: comparison
+          title: 'Comparison'
+          type: text
+        - name: measure
+          title: 'Measure'
+          type: text
+        - name: value
+          title: 'Value'
+          type: number
+        - name: lowerCI
+          title: 'Lower CI'
+          type: number
+        - name: upperCI
+          title: 'Upper CI'
+          type: number
+        - name: pvalue
+          title: 'p'
+          type: number
+          format: zto,pvalue
+        - name: effectSize
+          title: 'Effect Size'
+          type: text
+
+     # 6. UNILATERAL ASSOCIATION WARNING
+    - name: unilateralWarning
+      title: ''
+      type: Html
+      visible: false
+      clearWith:
+        - rows
+        - cols
+    
+    # 7. EFFECT SIZE THRESHOLDS
+    - name: thresholdsTable
+      title: Effect Size Interpretation Thresholds
+      type: Table
+      visible: (showThresholds)
+      clearWith:
+        - rows
+        - cols
+        - phi
+        - phiSigned
+        - phiCorrected
+        - contingencyC
+        - cAdjusted
+        - cCorrected
+        - cramersV
+        - vCorrected
+        - vStandardised
+        - vBiasCorrected
+        - cohenW
+        - wHat
+        - wHatCorrected
+        - sakoda
+        - sakodaCorrected
+        - sakodaLocal
+        - yulesQ
+        - yulesY
+        - oddsRatio
+      columns:
+        - name: measure
+          title: 'Measure'
+          type: text
+        - name: small
+          title: 'Small'
+          type: text
+        - name: medium
+          title: 'Medium'
+          type: text
+        - name: large
+          title: 'Large'
+          type: text
+        - name: notes
+          title: 'Notes'
+          type: text
+
+    - name: methodInfo
+      title: Method Details
+      type: Html
+      visible: (showMethodInfo)
+      clearWith:
+        - rows
+        - cols
+        - phi
+        - phiSigned
+        - phiCorrected
+        - contingencyC
+        - cAdjusted
+        - cCorrected
+        - cramersV
+        - vCorrected
+        - vStandardised
+        - vBiasCorrected
+        - cohenW
+        - wHat
+        - wHatCorrected
+        - sakoda
+        - sakodaCorrected
+        - sakodaLocal
+        - yulesQ
+        - yulesY
+        - oddsRatio
+        - gkLambda
+        - gkLambdaCorrected
+        - gkTau
+
+    # 8. REFERENCES
+    - name: legendNote
+      title: References
+      type: Html
+...

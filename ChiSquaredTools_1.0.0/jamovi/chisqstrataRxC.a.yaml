@@ -1,0 +1,185 @@
+---
+name: chisqstrataRxC
+title: Stratified Analysis (R×C×K)
+menuGroup: Chi² Tools
+menuTitle: Stratified Analysis (R×C×K)
+version: '1.0.0'
+jas: '1.2'
+description:
+    main: |
+        Stratified analysis of R×C contingency tables for assessing conditional 
+        independence and homogeneity of association across strata.
+        
+        This facility performs a comprehensive diagnostic procedure for tables 
+        larger than 2×2, including:
+        
+        - Stratum-specific chi-squared tests and Cramér's V corrected with 
+          bootstrap 95% confidence intervals
+        - Generalised Cochran-Mantel-Haenszel (CMH) test for conditional independence
+        - Log-linear likelihood ratio test for homogeneity of association patterns
+        - Weighted average of V corrected across strata (when homogeneity holds)
+        
+        The analysis provides automated interpretation based on the joint pattern 
+        of test results, distinguishing between conditional independence, 
+        homogeneous association, and effect modification (interaction).
+        
+        For 2×2 tables, use the dedicated "Stratified Analysis (2×2×K)" facility, 
+        which provides odds ratios and specialised homogeneity tests.
+        
+    R:
+        usage: |
+            # Example with occupational data stratified by region
+            
+            occ_df <- data.frame(
+                Education = factor(rep(c("Primary", "Secondary", "Tertiary"), 12)),
+                Occupation = factor(rep(rep(c("Manual", "Clerical", "Professional"), each = 3), 4)),
+                Region = factor(rep(c("North", "South", "East", "West"), each = 9)),
+                Count = c(45, 30, 15, 25, 40, 35, 10, 20, 55,
+                          50, 25, 20, 30, 35, 40, 15, 25, 50,
+                          40, 35, 18, 28, 42, 32, 12, 18, 52,
+                          48, 28, 22, 32, 38, 38, 14, 22, 48)
+            )
+            
+            ChiSquaredTools::chisqstrataRxC(
+                data = occ_df,
+                rows = 'Education',
+                cols = 'Occupation',
+                strata = 'Region',
+                counts = 'Count'
+            )
+
+completeWhenFilled: true
+
+options:
+    - name: data
+      type: Data
+      description:
+          R: the data as a data frame
+
+    - name: rows
+      title: Row Variable
+      type: Variable
+      suggested:
+        - nominal
+        - ordinal
+      permitted:
+        - factor
+      description:
+          R: >
+            a string naming the variable for rows in the contingency tables
+            (must be a factor with 2 or more levels)
+
+    - name: cols
+      title: Column Variable
+      type: Variable
+      suggested:
+        - nominal
+        - ordinal
+      permitted:
+        - factor
+      description:
+          R: >
+            a string naming the variable for columns in the contingency tables
+            (must be a factor with 2 or more levels)
+
+    - name: strata
+      title: Stratifying Variable
+      type: Variable
+      suggested:
+        - nominal
+        - ordinal
+      permitted:
+        - factor
+      description:
+          R: >
+            a string naming the stratifying variable; each level defines
+            one partial table (must be a factor with 2 or more levels)
+
+    - name: counts
+      title: Counts (optional)
+      type: Variable
+      suggested:
+        - continuous
+      description:
+          R: >
+            optional variable containing frequency counts for aggregated data.
+            If not provided, data are assumed to be in long format (one row per case).
+
+    - name: nBootstrap
+      title: Number of bootstrap replicates
+      type: Integer
+      default: 1000
+      min: 100
+      max: 10000
+      description:
+          R: >
+            number of bootstrap replicates for computing confidence intervals
+            of V corrected (default: 1000)
+
+    - name: showResiduals
+      title: Show adjusted standardised residuals
+      type: Bool
+      default: false
+      description:
+          R: >
+            TRUE or FALSE (default: FALSE), display adjusted standardised 
+            residuals for each partial table. Residuals exceeding ±1.96 
+            (highlighted) indicate cells contributing significantly to 
+            the chi-squared statistic at alpha = 0.05.
+
+    - name: showForestPlot
+      title: Display forest plot of V corrected
+      type: Bool
+      default: true
+      description:
+          R: >
+            TRUE or FALSE (default: TRUE), display a forest plot showing
+            stratum-specific V corrected with 95% confidence intervals and
+            the weighted average.
+
+    - name: showDiagnosticTree
+      title: Display diagnostic decision tree
+      type: Bool
+      default: true
+      description:
+          R: >
+            TRUE or FALSE (default: TRUE), display a visual decision tree
+            showing the diagnostic pathway based on test results.
+
+    - name: strataOrdered
+      title: Treat stratifying variable as ordered
+      type: Bool
+      default: false
+      description:
+          R: >
+            TRUE or FALSE (default: FALSE), treat the stratifying variable
+            as having a natural ordering. When enabled, allows trajectory
+            plot visualisation.
+
+    - name: showTrajectoryPlot
+      title: Display V corrected trajectory plot (if strata ordered)
+      type: Bool
+      default: true
+      description:
+          R: >
+            TRUE or FALSE (default: TRUE), display a V corrected trajectory
+            plot when the stratifying variable is marked as ordered.
+
+    - name: showInterpretation
+      title: Show interpretation guide
+      type: Bool
+      default: true
+      description:
+          R: >
+            TRUE or FALSE (default: TRUE), display the detailed interpretation
+            guide based on the pattern of test results.
+
+    - name: showMethodInfo
+      title: Show detailed method explanations
+      type: Bool
+      default: false
+      description:
+          R: >
+            TRUE or FALSE (default: FALSE), display detailed methodological 
+            explanations for all tests performed.
+...

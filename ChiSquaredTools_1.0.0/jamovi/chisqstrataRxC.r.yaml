@@ -1,0 +1,247 @@
+---
+name: chisqstrataRxC
+title: Stratified Analysis (R×C×K)
+jrs: '1.1'
+
+items:
+    - name: partialTablesGroup
+      title: Partial Tables (Strata)
+      type: Array
+      template:
+        title: Partial Table
+        type: Table
+        columns: []
+      clearWith:
+        - rows
+        - cols
+        - strata
+        - counts
+
+    - name: marginalTableHeader
+      title: ''
+      type: Html
+      visible: true
+
+    - name: marginalTable
+      type: Table
+      clearWith:
+        - rows
+        - cols
+        - strata
+        - counts
+      columns: []
+
+    - name: analysisResultsHeader
+      title: ''
+      type: Html
+      visible: true
+
+    - name: stratumResultsTable
+      title: Stratum-Specific Results
+      type: Table
+      clearWith:
+        - rows
+        - cols
+        - strata
+        - counts
+        - nBootstrap
+      columns:
+        - name: stratum
+          title: 'Table'
+          type: text
+        - name: chisq
+          title: 'χ²'
+          type: number
+        - name: df
+          title: 'df'
+          type: integer
+        - name: pvalue
+          title: 'p'
+          type: number
+          format: zto,pvalue
+        - name: v
+          title: 'V'
+          type: number
+        - name: vmax
+          title: 'V max'
+          type: number
+        - name: vcorr
+          title: 'V corr'
+          type: number
+        - name: ciLower
+          title: 'Lower'
+          superTitle: '95% CI'
+          type: number
+        - name: ciUpper
+          title: 'Upper'
+          superTitle: '95% CI'
+          type: number
+
+    - name: cmhTestTable
+      title: Generalised Cochran-Mantel-Haenszel Test for Conditional Independence
+      type: Table
+      clearWith:
+        - rows
+        - cols
+        - strata
+        - counts
+      columns:
+        - name: test
+          title: 'Test'
+          type: text
+        - name: statistic
+          title: 'Statistic'
+          type: number
+        - name: df
+          title: 'df'
+          type: integer
+        - name: pvalue
+          title: 'p'
+          type: number
+          format: zto,pvalue
+
+    - name: homogeneityTable
+      title: Test for Homogeneity of Association
+      type: Table
+      clearWith:
+        - rows
+        - cols
+        - strata
+        - counts
+      columns:
+        - name: test
+          title: 'Test'
+          type: text
+        - name: statistic
+          title: 'G²'
+          type: number
+        - name: df
+          title: 'df'
+          type: integer
+        - name: pvalue
+          title: 'p'
+          type: number
+          format: zto,pvalue
+
+    - name: summaryMeasureTable
+      title: Summary Measure
+      type: Table
+      clearWith:
+        - rows
+        - cols
+        - strata
+        - counts
+        - nBootstrap
+      columns:
+        - name: measure
+          title: 'Measure'
+          type: text
+        - name: estimate
+          title: 'Estimate'
+          type: number
+        - name: ciLower
+          title: 'Lower'
+          superTitle: '95% CI'
+          type: number
+        - name: ciUpper
+          title: 'Upper'
+          superTitle: '95% CI'
+          type: number
+
+    - name: residualsHeader
+      title: ''
+      type: Html
+      visible: (showResiduals)
+
+    - name: residualsGroup
+      title: ''
+      type: Array
+      visible: (showResiduals)
+      template:
+        title: Residuals
+        type: Table
+        columns: []
+      clearWith:
+        - rows
+        - cols
+        - strata
+        - counts
+
+    - name: residualsNote
+      title: ''
+      type: Html
+      visible: (showResiduals)
+
+    - name: interpretationGuideHeader
+      title: ''
+      type: Html
+      visible: (showInterpretation)
+
+    - name: interpretationNote
+      title: Interpretation
+      type: Html
+      visible: (showInterpretation)
+      clearWith:
+        - rows
+        - cols
+        - strata
+        - counts
+
+    - name: forestPlot
+      title: Forest Plot of V Corrected
+      type: Image
+      visible: (showForestPlot)
+      width: 700
+      height: 400
+      renderFun: .forestPlot
+      requiresData: true
+      clearWith:
+        - rows
+        - cols
+        - strata
+        - counts
+        - nBootstrap
+
+    - name: trajectoryPlot
+      title: V Corrected Trajectory
+      type: Image
+      visible: (showTrajectoryPlot && strataOrdered)
+      width: 700
+      height: 450
+      renderFun: .trajectoryPlot
+      requiresData: true
+      clearWith:
+        - rows
+        - cols
+        - strata
+        - counts
+        - strataOrdered
+        - nBootstrap
+
+    - name: diagnosticTree
+      title: Diagnostic Decision Path
+      type: Image
+      visible: (showDiagnosticTree)
+      width: 800
+      height: 500
+      renderFun: .diagnosticTree
+      requiresData: true
+      clearWith:
+        - rows
+        - cols
+        - strata
+        - counts
+
+    - name: methodInfo
+      title: Method Details
+      type: Html
+      visible: (showMethodInfo)
+      clearWith:
+        - rows
+        - cols
+        - strata
+
+    - name: legendNote
+      title: References
+      type: Html
+...
