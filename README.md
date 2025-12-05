@@ -99,7 +99,7 @@ If you use this module in your research or teaching, please cite:
 ## Related Resources
 
 - **chisquare**: The author's CRAN package providing the underlying statistical functions
-- **Cross-Tabulation Analysis: A Beginner's Guide** (Alberti, forthcoming): Companion textbook
+- **From Data to Insights: A Beginner's Guide toe Cross-Tabulation Analysis** (Chapman & Hall, 2024. ISBN 9781032720388)
 
 ## Licence
 
