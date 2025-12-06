@@ -186,6 +186,20 @@ children:
             name: yulesY
           - type: CheckBox
             name: oddsRatio
+          - type: LayoutBox
+            margin: normal
+            children:
+              - type: LevelSelector
+                name: rowRef
+                label: Row category of interest (OR)
+                enable: (oddsRatio)
+          - type: LayoutBox
+            margin: normal
+            children:
+              - type: LevelSelector
+                name: colRef
+                label: Col. category of interest (OR)
+                enable: (oddsRatio)
   - type: LayoutBox
     margin: large
     children:
