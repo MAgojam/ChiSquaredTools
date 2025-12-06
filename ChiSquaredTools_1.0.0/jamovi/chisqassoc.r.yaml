@@ -13,6 +13,17 @@ items:
         - cols
       columns: []
 
+    # 1b. OR INTERPRETATION NOTE (beneath observed table, 2x2 only)
+    - name: orInterpretation
+      title: ''
+      type: Html
+      visible: (oddsRatio)
+      clearWith:
+        - rows
+        - cols
+        - rowRef
+        - colRef
+
     # 2. CHI-SQUARE-MAXIMISING TABLE (third, after standardised)
     - name: chisqMaxTable
       title: Chi-Square-Maximising Table
@@ -62,6 +73,8 @@ items:
         - yulesQ
         - yulesY
         - oddsRatio
+        - rowRef
+        - colRef
         - gkLambda
         - gkLambdaCorrected
         - gkTau
