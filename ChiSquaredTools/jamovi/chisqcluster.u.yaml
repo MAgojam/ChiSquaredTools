@@ -29,7 +29,22 @@ children:
             name: counts
             maxItemCount: 1
             isTarget: true
- 
+
+  - type: CollapseBox
+    label: Partition Selection
+    collapsed: true
+    children:
+      - type: RadioButton
+        name: partitionMethod_greenacre
+        optionName: partitionMethod
+        optionPart: greenacre
+        label: Critical chi-squared (Greenacre, 2017)
+      - type: RadioButton
+        name: partitionMethod_inertia
+        optionName: partitionMethod
+        optionPart: inertia
+        label: Inertia gain ratio (Husson et al., 2017)
+
   - type: LayoutBox
     margin: large
     children:
@@ -40,6 +55,7 @@ children:
             name: plotRowDendro
           - type: CheckBox
             name: plotColDendro
+
   - type: LayoutBox
     margin: large
     children:

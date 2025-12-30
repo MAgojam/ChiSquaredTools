@@ -11,7 +11,8 @@ chisqclusterOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
             counts = NULL,
             plotRowDendro = FALSE,
             plotColDendro = FALSE,
-            showMethodInfo = FALSE, ...) {
+            showMethodInfo = FALSE,
+            partitionMethod = "greenacre", ...) {
 
             super$initialize(
                 package="ChiSquaredTools",
@@ -52,6 +53,13 @@ chisqclusterOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
                 "showMethodInfo",
                 showMethodInfo,
                 default=FALSE)
+            private$..partitionMethod <- jmvcore::OptionList$new(
+                "partitionMethod",
+                partitionMethod,
+                options=list(
+                    "greenacre",
+                    "inertia"),
+                default="greenacre")
 
             self$.addOption(private$..rows)
             self$.addOption(private$..cols)
@@ -59,6 +67,7 @@ chisqclusterOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
             self$.addOption(private$..plotRowDendro)
             self$.addOption(private$..plotColDendro)
             self$.addOption(private$..showMethodInfo)
+            self$.addOption(private$..partitionMethod)
         }),
     active = list(
         rows = function() private$..rows$value,
@@ -66,14 +75,16 @@ chisqclusterOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
         counts = function() private$..counts$value,
         plotRowDendro = function() private$..plotRowDendro$value,
         plotColDendro = function() private$..plotColDendro$value,
-        showMethodInfo = function() private$..showMethodInfo$value),
+        showMethodInfo = function() private$..showMethodInfo$value,
+        partitionMethod = function() private$..partitionMethod$value),
     private = list(
         ..rows = NA,
         ..cols = NA,
         ..counts = NA,
         ..plotRowDendro = NA,
         ..plotColDendro = NA,
-        ..showMethodInfo = NA)
+        ..showMethodInfo = NA,
+        ..partitionMethod = NA)
 )
 
 chisqclusterResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
@@ -82,17 +93,12 @@ chisqclusterResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
     active = list(
         crosstabTable = function() private$.items[["crosstabTable"]],
         rowClusterTable = function() private$.items[["rowClusterTable"]],
-        rowClusterSummary = function() private$.items[["rowClusterSummary"]],
         rowGroupsTable = function() private$.items[["rowGroupsTable"]],
-        rowGroupsNote = function() private$.items[["rowGroupsNote"]],
         rowDendro = function() private$.items[["rowDendro"]],
         colClusterTable = function() private$.items[["colClusterTable"]],
-        colClusterSummary = function() private$.items[["colClusterSummary"]],
         colGroupsTable = function() private$.items[["colGroupsTable"]],
-        colGroupsNote = function() private$.items[["colGroupsNote"]],
         colDendro = function() private$.items[["colDendro"]],
-        methodInfo = function() private$.items[["methodInfo"]],
-        legendNote = function() private$.items[["legendNote"]]),
+        methodInfo = function() private$.items[["methodInfo"]]),
     private = list(),
     public=list(
         initialize=function(options) {
@@ -106,15 +112,25 @@ chisqclusterResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
                 title="Observed Contingency Table",
                 clearWith=list(
                     "rows",
-                    "cols"),
+                    "cols",
+                    "counts"),
                 columns=list()))
             self$add(jmvcore::Table$new(
                 options=options,
                 name="rowClusterTable",
                 title="Row Merging Sequence",
+                refs=list(
+                    "greenacre1988",
+                    "greenacre2017",
+                    "hirotsu1983",
+                    "hussonetal2017",
+                    "pearsonhartley1972",
+                    "ward1963"),
                 clearWith=list(
                     "rows",
-                    "cols"),
+                    "cols",
+                    "counts",
+                    "partitionMethod"),
                 columns=list(
                     list(
                         `name`="step", 
@@ -140,17 +156,15 @@ chisqclusterResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
                         `name`="reductionPercent", 
                         `title`="% Reduction", 
                         `type`="number"))))
-            self$add(jmvcore::Html$new(
-                options=options,
-                name="rowClusterSummary",
-                title="Row Clustering Summary"))
             self$add(jmvcore::Table$new(
                 options=options,
                 name="rowGroupsTable",
-                title="Significant Row Groups",
+                title="Identified Row Groups",
                 clearWith=list(
                     "rows",
-                    "cols"),
+                    "cols",
+                    "counts",
+                    "partitionMethod"),
                 columns=list(
                     list(
                         `name`="groupName", 
@@ -160,10 +174,6 @@ chisqclusterResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
                         `name`="members", 
                         `title`="Members", 
                         `type`="text"))))
-            self$add(jmvcore::Html$new(
-                options=options,
-                name="rowGroupsNote",
-                title=""))
             self$add(jmvcore::Image$new(
                 options=options,
                 name="rowDendro",
@@ -174,14 +184,25 @@ chisqclusterResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
                 renderFun=".plotRowDendro",
                 clearWith=list(
                     "rows",
-                    "cols")))
+                    "cols",
+                    "counts",
+                    "partitionMethod")))
             self$add(jmvcore::Table$new(
                 options=options,
                 name="colClusterTable",
                 title="Column Merging Sequence",
+                refs=list(
+                    "greenacre1988",
+                    "greenacre2017",
+                    "hirotsu1983",
+                    "hussonetal2017",
+                    "pearsonhartley1972",
+                    "ward1963"),
                 clearWith=list(
                     "rows",
-                    "cols"),
+                    "cols",
+                    "counts",
+                    "partitionMethod"),
                 columns=list(
                     list(
                         `name`="step", 
@@ -207,17 +228,15 @@ chisqclusterResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
                         `name`="reductionPercent", 
                         `title`="% Reduction", 
                         `type`="number"))))
-            self$add(jmvcore::Html$new(
-                options=options,
-                name="colClusterSummary",
-                title="Column Clustering Summary"))
             self$add(jmvcore::Table$new(
                 options=options,
                 name="colGroupsTable",
-                title="Significant Column Groups",
+                title="Identified Column Groups",
                 clearWith=list(
                     "rows",
-                    "cols"),
+                    "cols",
+                    "counts",
+                    "partitionMethod"),
                 columns=list(
                     list(
                         `name`="groupName", 
@@ -227,10 +246,6 @@ chisqclusterResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
                         `name`="members", 
                         `title`="Members", 
                         `type`="text"))))
-            self$add(jmvcore::Html$new(
-                options=options,
-                name="colGroupsNote",
-                title=""))
             self$add(jmvcore::Image$new(
                 options=options,
                 name="colDendro",
@@ -241,7 +256,9 @@ chisqclusterResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
                 renderFun=".plotColDendro",
                 clearWith=list(
                     "rows",
-                    "cols")))
+                    "cols",
+                    "counts",
+                    "partitionMethod")))
             self$add(jmvcore::Html$new(
                 options=options,
                 name="methodInfo",
@@ -249,11 +266,7 @@ chisqclusterResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
                 visible="(showMethodInfo)",
                 clearWith=list(
                     "rows",
-                    "cols")))
-            self$add(jmvcore::Html$new(
-                options=options,
-                name="legendNote",
-                title="References"))}))
+                    "cols")))}))
 
 chisqclusterBase <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
     "chisqclusterBase",
@@ -271,7 +284,7 @@ chisqclusterBase <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
                 analysisId = analysisId,
                 revision = revision,
                 pause = NULL,
-                completeWhenFilled = TRUE,
+                completeWhenFilled = FALSE,
                 requiresMissings = FALSE,
                 weightsSupport = 'auto')
         }))
@@ -327,21 +340,21 @@ chisqclusterBase <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
 #'   clustering dendrogram  for table columns with critical value cutoff line
 #' @param showMethodInfo TRUE or FALSE (default), display detailed
 #'   methodological  explanations for the clustering procedure
+#' @param partitionMethod Method for selecting the optimal partition.
+#'   'greenacre' uses  critical chi-square values from Pearson & Hartley (1972)
+#'   to  identify statistically significant groupings. 'inertia' uses  the
+#'   relative drop in between-cluster inertia gain to find  the "elbow" in the
+#'   clustering hierarchy (Husson et al., 2017).
 #' @return A results object containing:
 #' \tabular{llllll}{
 #'   \code{results$crosstabTable} \tab \tab \tab \tab \tab a table \cr
 #'   \code{results$rowClusterTable} \tab \tab \tab \tab \tab a table \cr
-#'   \code{results$rowClusterSummary} \tab \tab \tab \tab \tab a html \cr
 #'   \code{results$rowGroupsTable} \tab \tab \tab \tab \tab a table \cr
-#'   \code{results$rowGroupsNote} \tab \tab \tab \tab \tab a html \cr
 #'   \code{results$rowDendro} \tab \tab \tab \tab \tab an image \cr
 #'   \code{results$colClusterTable} \tab \tab \tab \tab \tab a table \cr
-#'   \code{results$colClusterSummary} \tab \tab \tab \tab \tab a html \cr
 #'   \code{results$colGroupsTable} \tab \tab \tab \tab \tab a table \cr
-#'   \code{results$colGroupsNote} \tab \tab \tab \tab \tab a html \cr
 #'   \code{results$colDendro} \tab \tab \tab \tab \tab an image \cr
 #'   \code{results$methodInfo} \tab \tab \tab \tab \tab a html \cr
-#'   \code{results$legendNote} \tab \tab \tab \tab \tab a html \cr
 #' }
 #'
 #' Tables can be converted to data frames with \code{asDF} or \code{\link{as.data.frame}}. For example:
@@ -358,7 +371,8 @@ chisqcluster <- function(
     counts,
     plotRowDendro = FALSE,
     plotColDendro = FALSE,
-    showMethodInfo = FALSE) {
+    showMethodInfo = FALSE,
+    partitionMethod = "greenacre") {
 
     if ( ! requireNamespace("jmvcore", quietly=TRUE))
         stop("chisqcluster requires jmvcore to be installed (restart may be required)")
@@ -382,7 +396,8 @@ chisqcluster <- function(
         counts = counts,
         plotRowDendro = plotRowDendro,
         plotColDendro = plotColDendro,
-        showMethodInfo = showMethodInfo)
+        showMethodInfo = showMethodInfo,
+        partitionMethod = partitionMethod)
 
     analysis <- chisqclusterClass$new(
         options = options,

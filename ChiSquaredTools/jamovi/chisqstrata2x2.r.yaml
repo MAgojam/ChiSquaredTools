@@ -3,9 +3,22 @@ name: chisqstrata2x2
 title: Stratified Analysis (2×2×K)
 jrs: '1.1'
 
+refs:
+    - agresti2013
+    - alberti2024
+    - azen2021
+    - breslowday1980
+    - davis1971
+    - fleiss2003
+    - lachin2000
+    - ott1992
+    - pagano2018
+    - reynolds1977
+    - sheskin2011
+
 items:
     - name: partialTablesGroup
-      title: Partial Tables (Strata)
+      title: ''
       type: Array
       template:
         title: Partial Table
@@ -19,11 +32,6 @@ items:
         - rowRef
         - colRef
 
-    - name: marginalTableHeader
-      title: ''
-      type: Html
-      visible: true
-
     - name: marginalTable
       type: Table
       clearWith:
@@ -33,27 +41,9 @@ items:
         - counts
       columns: []
 
-    - name: marginalORAnnotation
-      title: ''
-      type: Html
-      visible: (showORAnnotation)
-      clearWith:
-        - rows
-        - cols
-        - strata
-        - counts
-        - rowRef
-        - colRef
-
-    - name: analysisResultsHeader
-      title: ''
-      type: Html
-      visible: true
-
     - name: partialChiSqTable
       title: Chi-Squared Tests
       type: Table
-      visible: (showPartialChiSq)
       clearWith:
         - rows
         - cols
@@ -73,6 +63,8 @@ items:
           title: 'p'
           type: number
           format: zto,pvalue
+      refs:
+       - ott1992
 
     - name: oddsRatioTable
       title: Odds Ratios and Confidence Intervals
@@ -99,6 +91,11 @@ items:
           title: 'Upper'
           superTitle: '95% CI'
           type: number
+      refs:
+       - azen2021
+       - cummingfinch2005
+       - lachin2000
+       - pagano2018
 
     - name: cmhTestTable
       title: Cochran-Mantel-Haenszel Test for Conditional Independence
@@ -133,6 +130,8 @@ items:
           title: 'Upper'
           superTitle: '95% CI'
           type: number
+      refs:
+       - azen2021
 
     - name: homogeneityTable
       title: Tests for Homogeneity of Odds Ratios
@@ -156,16 +155,15 @@ items:
           title: 'p'
           type: number
           format: zto,pvalue
+      refs:
+       - azen2021
+       - breslowday1980
+       - pagano2018
+       - sheskin2011
 
-    - name: interpretationGuideHeader
-      title: ''
-      type: Html
-      visible: (showInterpretation)
-
-    - name: interpretationNote
-      title: Interpretation
-      type: Html
-      visible: (showInterpretation)
+    - name: interpretationTable
+      title: Interpretation Summary
+      type: Table
       clearWith:
         - rows
         - cols
@@ -173,23 +171,20 @@ items:
         - counts
         - rowRef
         - colRef
-
-    - name: diagnosticSummary
-      title: Diagnostic Summary
-      type: Html
-      visible: (showDiagnosticSummary)
-      clearWith:
-        - rows
-        - cols
-        - strata
-        - counts
+      columns:
+        - name: topic
+          title: 'Aspect'
+          type: text
+        - name: result
+          title: 'Result'
+          type: text
 
     - name: forestPlot
       title: Forest Plot of Odds Ratios
       type: Image
       visible: (showForestPlot)
       width: 700
-      height: 400
+      height: 550
       renderFun: .forestPlot
       requiresData: true
       clearWith:
@@ -225,8 +220,7 @@ items:
         - rows
         - cols
         - strata
-
-    - name: legendNote
-      title: References
-      type: Html
+        - counts
+        - rowRef
+        - colRef
 ...

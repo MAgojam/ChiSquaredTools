@@ -10,15 +10,24 @@ items:
       clearWith:
         - rows
         - cols
+        - counts
       columns: []
 
-    # ROW CLUSTERING RESULTS
     - name: rowClusterTable
       title: Row Merging Sequence
       type: Table
+      refs:
+       - greenacre1988
+       - greenacre2017
+       - hirotsu1983
+       - hussonetal2017
+       - pearsonhartley1972
+       - ward1963
       clearWith:
         - rows
         - cols
+        - counts
+        - partitionMethod
       columns:
         - name: step
           title: 'Step'
@@ -39,16 +48,14 @@ items:
           title: '% Reduction'
           type: number
 
-    - name: rowClusterSummary
-      title: Row Clustering Summary
-      type: Html
-
     - name: rowGroupsTable
-      title: Significant Row Groups
+      title: Identified Row Groups
       type: Table
       clearWith:
         - rows
         - cols
+        - counts
+        - partitionMethod
       columns:
         - name: groupName
           title: 'Group'
@@ -56,10 +63,6 @@ items:
         - name: members
           title: 'Members'
           type: text
-
-    - name: rowGroupsNote
-      title: ''
-      type: Html
 
     - name: rowDendro
       title: Row Clustering Dendrogram
@@ -71,14 +74,24 @@ items:
       clearWith:
         - rows
         - cols
+        - counts
+        - partitionMethod
 
-    # COLUMN CLUSTERING RESULTS
     - name: colClusterTable
       title: Column Merging Sequence
       type: Table
+      refs:
+       - greenacre1988
+       - greenacre2017
+       - hirotsu1983
+       - hussonetal2017
+       - pearsonhartley1972
+       - ward1963
       clearWith:
         - rows
         - cols
+        - counts
+        - partitionMethod
       columns:
         - name: step
           title: 'Step'
@@ -99,16 +112,14 @@ items:
           title: '% Reduction'
           type: number
 
-    - name: colClusterSummary
-      title: Column Clustering Summary
-      type: Html
-
     - name: colGroupsTable
-      title: Significant Column Groups
+      title: Identified Column Groups
       type: Table
       clearWith:
         - rows
         - cols
+        - counts
+        - partitionMethod
       columns:
         - name: groupName
           title: 'Group'
@@ -116,10 +127,6 @@ items:
         - name: members
           title: 'Members'
           type: text
-
-    - name: colGroupsNote
-      title: ''
-      type: Html
 
     - name: colDendro
       title: Column Clustering Dendrogram
@@ -131,8 +138,9 @@ items:
       clearWith:
         - rows
         - cols
+        - counts
+        - partitionMethod
 
-    # METHOD DETAILS AND REFERENCES
     - name: methodInfo
       title: Method Details
       type: Html
@@ -140,8 +148,4 @@ items:
       clearWith:
         - rows
         - cols
-
-    - name: legendNote
-      title: References
-      type: Html
 ...

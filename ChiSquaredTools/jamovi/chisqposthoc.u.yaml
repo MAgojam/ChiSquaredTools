@@ -90,6 +90,7 @@ children:
           - type: TextBox
             name: confLevel
             format: number
+            suffix: '%'
           - type: TextBox
             name: bootstrapReps
             format: number
@@ -118,7 +119,5 @@ children:
       - type: Label
         label: Display Options
         children:
-          - type: CheckBox
-            name: showSignificanceTables
           - type: CheckBox
             name: showMethodInfo

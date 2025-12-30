@@ -11,11 +11,11 @@ chisqposthocOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
             counts = NULL,
             stdres = FALSE,
             momcorrstdres = FALSE,
-            adjstdres = FALSE,
+            adjstdres = TRUE,
             quetelet = FALSE,
             ij = FALSE,
             bsOutlier = FALSE,
-            bsKmax = 5,
+            bsKmax = 2,
             pem = FALSE,
             medpolish = FALSE,
             adjmedpolish = FALSE,
@@ -23,10 +23,9 @@ chisqposthocOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
             dep = FALSE,
             depOutcome = NULL,
             sidakCorrection = FALSE,
-            confLevel = 0.95,
+            confLevel = 95,
             bootstrapReps = 999,
             seed = 123,
-            showSignificanceTables = FALSE,
             showPemPlot = FALSE,
             pemPlotFilter = "all",
             showDepPlot = FALSE,
@@ -70,7 +69,7 @@ chisqposthocOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
             private$..adjstdres <- jmvcore::OptionBool$new(
                 "adjstdres",
                 adjstdres,
-                default=FALSE)
+                default=TRUE)
             private$..quetelet <- jmvcore::OptionBool$new(
                 "quetelet",
                 quetelet,
@@ -88,7 +87,7 @@ chisqposthocOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
                 bsKmax,
                 min=1,
                 max=100,
-                default=5)
+                default=2)
             private$..pem <- jmvcore::OptionBool$new(
                 "pem",
                 pem,
@@ -120,9 +119,9 @@ chisqposthocOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
             private$..confLevel <- jmvcore::OptionNumber$new(
                 "confLevel",
                 confLevel,
-                min=0.5,
-                max=0.999,
-                default=0.95)
+                min=50,
+                max=99.9,
+                default=95)
             private$..bootstrapReps <- jmvcore::OptionInteger$new(
                 "bootstrapReps",
                 bootstrapReps,
@@ -135,10 +134,6 @@ chisqposthocOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
                 min=1,
                 max=999999,
                 default=123)
-            private$..showSignificanceTables <- jmvcore::OptionBool$new(
-                "showSignificanceTables",
-                showSignificanceTables,
-                default=FALSE)
             private$..showPemPlot <- jmvcore::OptionBool$new(
                 "showPemPlot",
                 showPemPlot,
@@ -180,7 +175,6 @@ chisqposthocOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
             self$.addOption(private$..confLevel)
             self$.addOption(private$..bootstrapReps)
             self$.addOption(private$..seed)
-            self$.addOption(private$..showSignificanceTables)
             self$.addOption(private$..showPemPlot)
             self$.addOption(private$..pemPlotFilter)
             self$.addOption(private$..showDepPlot)
@@ -207,7 +201,6 @@ chisqposthocOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
         confLevel = function() private$..confLevel$value,
         bootstrapReps = function() private$..bootstrapReps$value,
         seed = function() private$..seed$value,
-        showSignificanceTables = function() private$..showSignificanceTables$value,
         showPemPlot = function() private$..showPemPlot$value,
         pemPlotFilter = function() private$..pemPlotFilter$value,
         showDepPlot = function() private$..showDepPlot$value,
@@ -233,7 +226,6 @@ chisqposthocOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
         ..confLevel = NA,
         ..bootstrapReps = NA,
         ..seed = NA,
-        ..showSignificanceTables = NA,
         ..showPemPlot = NA,
         ..pemPlotFilter = NA,
         ..showDepPlot = NA,
@@ -246,36 +238,21 @@ chisqposthocResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
     active = list(
         crosstabTable = function() private$.items[["crosstabTable"]],
         stdresTable = function() private$.items[["stdresTable"]],
-        stdresNote = function() private$.items[["stdresNote"]],
         momcorrstdresTable = function() private$.items[["momcorrstdresTable"]],
-        momcorrstdresNote = function() private$.items[["momcorrstdresNote"]],
         adjstdresTable = function() private$.items[["adjstdresTable"]],
-        adjstdresNote = function() private$.items[["adjstdresNote"]],
         queteletTable = function() private$.items[["queteletTable"]],
-        queteletNote = function() private$.items[["queteletNote"]],
         ijTable = function() private$.items[["ijTable"]],
-        ijNote = function() private$.items[["ijNote"]],
         bsOutlierMatrixTable = function() private$.items[["bsOutlierMatrixTable"]],
         bsOutlierDetailTable = function() private$.items[["bsOutlierDetailTable"]],
-        bsOutlierNote = function() private$.items[["bsOutlierNote"]],
         pemTable = function() private$.items[["pemTable"]],
-        pemNote = function() private$.items[["pemNote"]],
         pemPlot = function() private$.items[["pemPlot"]],
         medpolishTable = function() private$.items[["medpolishTable"]],
-        medpolishNote = function() private$.items[["medpolishNote"]],
         adjmedpolishTable = function() private$.items[["adjmedpolishTable"]],
-        adjmedpolishNote = function() private$.items[["adjmedpolishNote"]],
         gkresColTable = function() private$.items[["gkresColTable"]],
         gkresRowTable = function() private$.items[["gkresRowTable"]],
-        gkresNote = function() private$.items[["gkresNote"]],
         depTable = function() private$.items[["depTable"]],
-        depNote = function() private$.items[["depNote"]],
         depPlot = function() private$.items[["depPlot"]],
-        sigPosTable = function() private$.items[["sigPosTable"]],
-        sigNegTable = function() private$.items[["sigNegTable"]],
-        nonSigTable = function() private$.items[["nonSigTable"]],
-        methodInfo = function() private$.items[["methodInfo"]],
-        legendNote = function() private$.items[["legendNote"]]),
+        methodInfo = function() private$.items[["methodInfo"]]),
     private = list(),
     public=list(
         initialize=function(options) {
@@ -289,7 +266,20 @@ chisqposthocResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
                 title="Observed Contingency Table",
                 clearWith=list(
                     "rows",
-                    "cols"),
+                    "cols",
+                    "counts",
+                    "stdres",
+                    "momcorrstdres",
+                    "adjstdres",
+                    "quetelet",
+                    "ij",
+                    "bsOutlier",
+                    "pem",
+                    "medpolish",
+                    "adjmedpolish",
+                    "gkres",
+                    "dep",
+                    "sidakCorrection"),
                 columns=list()))
             self$add(jmvcore::Table$new(
                 options=options,
@@ -299,13 +289,11 @@ chisqposthocResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
                 clearWith=list(
                     "rows",
                     "cols",
-                    "sidakCorrection"),
-                columns=list()))
-            self$add(jmvcore::Html$new(
-                options=options,
-                name="stdresNote",
-                title="Interpretation",
-                visible="(stdres)"))
+                    "sidakCorrection",
+                    "stdres"),
+                columns=list(),
+                refs=list(
+                    "agresti2013")))
             self$add(jmvcore::Table$new(
                 options=options,
                 name="momcorrstdresTable",
@@ -314,13 +302,11 @@ chisqposthocResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
                 clearWith=list(
                     "rows",
                     "cols",
-                    "sidakCorrection"),
-                columns=list()))
-            self$add(jmvcore::Html$new(
-                options=options,
-                name="momcorrstdresNote",
-                title="Interpretation",
-                visible="(momcorrstdres)"))
+                    "sidakCorrection",
+                    "momcorrstdres"),
+                columns=list(),
+                refs=list(
+                    "garciaperez2003")))
             self$add(jmvcore::Table$new(
                 options=options,
                 name="adjstdresTable",
@@ -329,13 +315,11 @@ chisqposthocResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
                 clearWith=list(
                     "rows",
                     "cols",
-                    "sidakCorrection"),
-                columns=list()))
-            self$add(jmvcore::Html$new(
-                options=options,
-                name="adjstdresNote",
-                title="Interpretation",
-                visible="(adjstdres)"))
+                    "sidakCorrection",
+                    "adjstdres"),
+                columns=list(),
+                refs=list(
+                    "haberman1973")))
             self$add(jmvcore::Table$new(
                 options=options,
                 name="queteletTable",
@@ -343,13 +327,12 @@ chisqposthocResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
                 visible="(quetelet)",
                 clearWith=list(
                     "rows",
-                    "cols"),
-                columns=list()))
-            self$add(jmvcore::Html$new(
-                options=options,
-                name="queteletNote",
-                title="Interpretation",
-                visible="(quetelet)"))
+                    "cols",
+                    "quetelet"),
+                columns=list(),
+                refs=list(
+                    "mirkin2001",
+                    "mirkin2023")))
             self$add(jmvcore::Table$new(
                 options=options,
                 name="ijTable",
@@ -357,13 +340,12 @@ chisqposthocResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
                 visible="(ij)",
                 clearWith=list(
                     "rows",
-                    "cols"),
-                columns=list()))
-            self$add(jmvcore::Html$new(
-                options=options,
-                name="ijNote",
-                title="Interpretation",
-                visible="(ij)"))
+                    "cols",
+                    "ij"),
+                columns=list(),
+                refs=list(
+                    "good1956",
+                    "agresti2013")))
             self$add(jmvcore::Table$new(
                 options=options,
                 name="bsOutlierMatrixTable",
@@ -373,7 +355,9 @@ chisqposthocResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
                     "rows",
                     "cols",
                     "bsKmax"),
-                columns=list()))
+                columns=list(),
+                refs=list(
+                    "simonoff1988")))
             self$add(jmvcore::Table$new(
                 options=options,
                 name="bsOutlierDetailTable",
@@ -404,11 +388,6 @@ chisqposthocResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
                         `name`="detected", 
                         `title`="Detected", 
                         `type`="text"))))
-            self$add(jmvcore::Html$new(
-                options=options,
-                name="bsOutlierNote",
-                title="Interpretation",
-                visible="(bsOutlier)"))
             self$add(jmvcore::Table$new(
                 options=options,
                 name="pemTable",
@@ -419,12 +398,11 @@ chisqposthocResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
                     "cols",
                     "confLevel",
                     "bootstrapReps"),
-                columns=list()))
-            self$add(jmvcore::Html$new(
-                options=options,
-                name="pemNote",
-                title="Interpretation",
-                visible="(pem)"))
+                columns=list(),
+                refs=list(
+                    "cibois1993",
+                    "lefevrechampely2009",
+                    "sakoda1981")))
             self$add(jmvcore::Image$new(
                 options=options,
                 name="pemPlot",
@@ -448,13 +426,12 @@ chisqposthocResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
                 visible="(medpolish)",
                 clearWith=list(
                     "rows",
-                    "cols"),
-                columns=list()))
-            self$add(jmvcore::Html$new(
-                options=options,
-                name="medpolishNote",
-                title="Interpretation",
-                visible="(medpolish)"))
+                    "cols",
+                    "medpolish"),
+                columns=list(),
+                refs=list(
+                    "mostellerparunak1985",
+                    "simonoff2003")))
             self$add(jmvcore::Table$new(
                 options=options,
                 name="adjmedpolishTable",
@@ -462,13 +439,11 @@ chisqposthocResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
                 visible="(adjmedpolish)",
                 clearWith=list(
                     "rows",
-                    "cols"),
-                columns=list()))
-            self$add(jmvcore::Html$new(
-                options=options,
-                name="adjmedpolishNote",
-                title="Interpretation",
-                visible="(adjmedpolish)"))
+                    "cols",
+                    "adjmedpolish"),
+                columns=list(),
+                refs=list(
+                    "mostellerparunak1985")))
             self$add(jmvcore::Table$new(
                 options=options,
                 name="gkresColTable",
@@ -477,7 +452,9 @@ chisqposthocResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
                 clearWith=list(
                     "rows",
                     "cols"),
-                columns=list()))
+                columns=list(),
+                refs=list(
+                    "kroonenberglombardo1999")))
             self$add(jmvcore::Table$new(
                 options=options,
                 name="gkresRowTable",
@@ -486,12 +463,9 @@ chisqposthocResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
                 clearWith=list(
                     "rows",
                     "cols"),
-                columns=list()))
-            self$add(jmvcore::Html$new(
-                options=options,
-                name="gkresNote",
-                title="Interpretation",
-                visible="(gkres)"))
+                columns=list(),
+                refs=list(
+                    "kroonenberglombardo1999")))
             self$add(jmvcore::Table$new(
                 options=options,
                 name="depTable",
@@ -525,12 +499,9 @@ chisqposthocResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
                     list(
                         `name`="significance", 
                         `title`="Significance", 
-                        `type`="text"))))
-            self$add(jmvcore::Html$new(
-                options=options,
-                name="depNote",
-                title="Interpretation",
-                visible="(dep)"))
+                        `type`="text")),
+                refs=list(
+                    "gambirasio2024")))
             self$add(jmvcore::Image$new(
                 options=options,
                 name="depPlot",
@@ -544,84 +515,6 @@ chisqposthocResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
                     "rows",
                     "cols",
                     "depOutcome")))
-            self$add(jmvcore::Table$new(
-                options=options,
-                name="sigPosTable",
-                title="Significant Positive Associations",
-                visible="(showSignificanceTables)",
-                clearWith=list(
-                    "rows",
-                    "cols",
-                    "metrics"),
-                columns=list(
-                    list(
-                        `name`="rowCat", 
-                        `title`="Row", 
-                        `type`="text"),
-                    list(
-                        `name`="colCat", 
-                        `title`="Column", 
-                        `type`="text"),
-                    list(
-                        `name`="metric", 
-                        `title`="Metric", 
-                        `type`="text"),
-                    list(
-                        `name`="value", 
-                        `title`="Value", 
-                        `type`="text"))))
-            self$add(jmvcore::Table$new(
-                options=options,
-                name="sigNegTable",
-                title="Significant Negative Associations",
-                visible="(showSignificanceTables)",
-                clearWith=list(
-                    "rows",
-                    "cols",
-                    "metrics"),
-                columns=list(
-                    list(
-                        `name`="rowCat", 
-                        `title`="Row", 
-                        `type`="text"),
-                    list(
-                        `name`="colCat", 
-                        `title`="Column", 
-                        `type`="text"),
-                    list(
-                        `name`="metric", 
-                        `title`="Metric", 
-                        `type`="text"),
-                    list(
-                        `name`="value", 
-                        `title`="Value", 
-                        `type`="text"))))
-            self$add(jmvcore::Table$new(
-                options=options,
-                name="nonSigTable",
-                title="Non-Significant Associations",
-                visible="(showSignificanceTables)",
-                clearWith=list(
-                    "rows",
-                    "cols",
-                    "metrics"),
-                columns=list(
-                    list(
-                        `name`="rowCat", 
-                        `title`="Row", 
-                        `type`="text"),
-                    list(
-                        `name`="colCat", 
-                        `title`="Column", 
-                        `type`="text"),
-                    list(
-                        `name`="metric", 
-                        `title`="Metric", 
-                        `type`="text"),
-                    list(
-                        `name`="value", 
-                        `title`="Value", 
-                        `type`="text"))))
             self$add(jmvcore::Html$new(
                 options=options,
                 name="methodInfo",
@@ -640,11 +533,8 @@ chisqposthocResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
                     "medpolish",
                     "adjmedpolish",
                     "gkres",
-                    "dep")))
-            self$add(jmvcore::Html$new(
-                options=options,
-                name="legendNote",
-                title="References"))}))
+                    "dep",
+                    "showMethodInfo")))}))
 
 chisqposthocBase <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
     "chisqposthocBase",
@@ -755,14 +645,11 @@ chisqposthocBase <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
 #' @param sidakCorrection TRUE or FALSE (default: FALSE), apply Šidák
 #'   correction to  standardised, moment-corrected standardised, and adjusted
 #'   standardised residual significance thresholds
-#' @param confLevel confidence level for PEM bootstrap confidence intervals
-#'   (default: 0.95)
+#' @param confLevel confidence level as percentage for PEM bootstrap
+#'   confidence intervals (default: 0.95)
 #' @param bootstrapReps number of bootstrap replications for PEM confidence
 #'   intervals (default: 2000)
 #' @param seed random seed for reproducibility (default: 123)
-#' @param showSignificanceTables TRUE or FALSE (default: FALSE), display
-#'   tables summarising significant positive, negative, and non-significant cell
-#'   patterns
 #' @param showPemPlot TRUE or FALSE (default: FALSE), display a diverging bar
 #'   chart of PEM values with bootstrap confidence intervals, sorted by
 #'   magnitude
@@ -777,36 +664,21 @@ chisqposthocBase <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
 #' \tabular{llllll}{
 #'   \code{results$crosstabTable} \tab \tab \tab \tab \tab a table \cr
 #'   \code{results$stdresTable} \tab \tab \tab \tab \tab a table \cr
-#'   \code{results$stdresNote} \tab \tab \tab \tab \tab a html \cr
 #'   \code{results$momcorrstdresTable} \tab \tab \tab \tab \tab a table \cr
-#'   \code{results$momcorrstdresNote} \tab \tab \tab \tab \tab a html \cr
 #'   \code{results$adjstdresTable} \tab \tab \tab \tab \tab a table \cr
-#'   \code{results$adjstdresNote} \tab \tab \tab \tab \tab a html \cr
 #'   \code{results$queteletTable} \tab \tab \tab \tab \tab a table \cr
-#'   \code{results$queteletNote} \tab \tab \tab \tab \tab a html \cr
 #'   \code{results$ijTable} \tab \tab \tab \tab \tab a table \cr
-#'   \code{results$ijNote} \tab \tab \tab \tab \tab a html \cr
 #'   \code{results$bsOutlierMatrixTable} \tab \tab \tab \tab \tab a table \cr
 #'   \code{results$bsOutlierDetailTable} \tab \tab \tab \tab \tab a table \cr
-#'   \code{results$bsOutlierNote} \tab \tab \tab \tab \tab a html \cr
 #'   \code{results$pemTable} \tab \tab \tab \tab \tab a table \cr
-#'   \code{results$pemNote} \tab \tab \tab \tab \tab a html \cr
 #'   \code{results$pemPlot} \tab \tab \tab \tab \tab an image \cr
 #'   \code{results$medpolishTable} \tab \tab \tab \tab \tab a table \cr
-#'   \code{results$medpolishNote} \tab \tab \tab \tab \tab a html \cr
 #'   \code{results$adjmedpolishTable} \tab \tab \tab \tab \tab a table \cr
-#'   \code{results$adjmedpolishNote} \tab \tab \tab \tab \tab a html \cr
 #'   \code{results$gkresColTable} \tab \tab \tab \tab \tab a table \cr
 #'   \code{results$gkresRowTable} \tab \tab \tab \tab \tab a table \cr
-#'   \code{results$gkresNote} \tab \tab \tab \tab \tab a html \cr
 #'   \code{results$depTable} \tab \tab \tab \tab \tab a table \cr
-#'   \code{results$depNote} \tab \tab \tab \tab \tab a html \cr
 #'   \code{results$depPlot} \tab \tab \tab \tab \tab an image \cr
-#'   \code{results$sigPosTable} \tab \tab \tab \tab \tab a table \cr
-#'   \code{results$sigNegTable} \tab \tab \tab \tab \tab a table \cr
-#'   \code{results$nonSigTable} \tab \tab \tab \tab \tab a table \cr
 #'   \code{results$methodInfo} \tab \tab \tab \tab \tab a html \cr
-#'   \code{results$legendNote} \tab \tab \tab \tab \tab a html \cr
 #' }
 #'
 #' Tables can be converted to data frames with \code{asDF} or \code{\link{as.data.frame}}. For example:
@@ -823,11 +695,11 @@ chisqposthoc <- function(
     counts,
     stdres = FALSE,
     momcorrstdres = FALSE,
-    adjstdres = FALSE,
+    adjstdres = TRUE,
     quetelet = FALSE,
     ij = FALSE,
     bsOutlier = FALSE,
-    bsKmax = 5,
+    bsKmax = 2,
     pem = FALSE,
     medpolish = FALSE,
     adjmedpolish = FALSE,
@@ -835,10 +707,9 @@ chisqposthoc <- function(
     dep = FALSE,
     depOutcome,
     sidakCorrection = FALSE,
-    confLevel = 0.95,
+    confLevel = 95,
     bootstrapReps = 999,
     seed = 123,
-    showSignificanceTables = FALSE,
     showPemPlot = FALSE,
     pemPlotFilter = "all",
     showDepPlot = FALSE,
@@ -881,7 +752,6 @@ chisqposthoc <- function(
         confLevel = confLevel,
         bootstrapReps = bootstrapReps,
         seed = seed,
-        showSignificanceTables = showSignificanceTables,
         showPemPlot = showPemPlot,
         pemPlotFilter = pemPlotFilter,
         showDepPlot = showDepPlot,

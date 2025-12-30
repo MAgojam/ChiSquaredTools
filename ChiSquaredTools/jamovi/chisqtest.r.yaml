@@ -2,6 +2,21 @@
 name: chisqtest
 title: Chi-Squared Test of Independence
 jrs: '1.1'
+refs:
+  - agresti2013
+  - agresti2022
+  - alberti2024
+  - campbell2007
+  - fuchs1980
+  - lin2015
+  - phipson2010
+  - rasch2011
+  - rhoades1982
+  - richardson2011
+  - roscoe1971
+  - upton1982
+  - utts2014
+  - zar2014
 
 items:
     - name: crosstabTable
@@ -20,10 +35,25 @@ items:
         - cols
       columns: []
 
-    - name: methodGuidance
-      title: Method Selection Guidance
-      type: Html
-      visible: (showMethodGuidance)
+    - name: tableCharacteristics
+      title: Table Characteristics
+      type: Table
+      rows: 0
+      clearWith:
+        - rows
+        - cols
+      columns:
+        - name: characteristic
+          title: 'Characteristic'
+          type: text
+        - name: value
+          title: 'Value'
+          type: text
+      refs:
+       - alberti2024
+       - rhoades1982
+       - roscoe1971
+       - zar2014
 
     - name: testResults
       title: Test Results
@@ -31,10 +61,6 @@ items:
       clearWith:
         - rows
         - cols
-        - traditionalTest
-        - n1Test
-        - permTest
-        - monteCarloTest
         - nPerms
         - seed
       columns:
@@ -54,6 +80,11 @@ items:
           title: 'p'
           type: number
           format: zto,pvalue
+      refs:
+       - alberti2024
+       - campbell2007
+       - fuchs1980
+       - lin2015
 
     - name: permDistPlot
       title: Permutation Test Distribution
@@ -92,7 +123,6 @@ items:
         - n1Test
         - permTest
         - monteCarloTest
-
     - name: legendNote
       title: References
       type: Html

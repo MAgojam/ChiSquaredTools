@@ -16,7 +16,6 @@ chisqtestOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
             mTest = FALSE,
             nPerms = 999,
             seed = 123,
-            showMethodGuidance = TRUE,
             showDistributions = FALSE,
             showMethodInfo = FALSE, ...) {
 
@@ -79,10 +78,6 @@ chisqtestOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
                 min=1,
                 max=999999,
                 default=123)
-            private$..showMethodGuidance <- jmvcore::OptionBool$new(
-                "showMethodGuidance",
-                showMethodGuidance,
-                default=TRUE)
             private$..showDistributions <- jmvcore::OptionBool$new(
                 "showDistributions",
                 showDistributions,
@@ -102,7 +97,6 @@ chisqtestOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
             self$.addOption(private$..mTest)
             self$.addOption(private$..nPerms)
             self$.addOption(private$..seed)
-            self$.addOption(private$..showMethodGuidance)
             self$.addOption(private$..showDistributions)
             self$.addOption(private$..showMethodInfo)
         }),
@@ -117,7 +111,6 @@ chisqtestOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
         mTest = function() private$..mTest$value,
         nPerms = function() private$..nPerms$value,
         seed = function() private$..seed$value,
-        showMethodGuidance = function() private$..showMethodGuidance$value,
         showDistributions = function() private$..showDistributions$value,
         showMethodInfo = function() private$..showMethodInfo$value),
     private = list(
@@ -131,7 +124,6 @@ chisqtestOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
         ..mTest = NA,
         ..nPerms = NA,
         ..seed = NA,
-        ..showMethodGuidance = NA,
         ..showDistributions = NA,
         ..showMethodInfo = NA)
 )
@@ -142,7 +134,7 @@ chisqtestResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
     active = list(
         crosstabTable = function() private$.items[["crosstabTable"]],
         expectedTable = function() private$.items[["expectedTable"]],
-        methodGuidance = function() private$.items[["methodGuidance"]],
+        tableCharacteristics = function() private$.items[["tableCharacteristics"]],
         testResults = function() private$.items[["testResults"]],
         permDistPlot = function() private$.items[["permDistPlot"]],
         mcDistPlot = function() private$.items[["mcDistPlot"]],
@@ -154,7 +146,22 @@ chisqtestResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
             super$initialize(
                 options=options,
                 name="",
-                title="Chi-Squared Test of Independence")
+                title="Chi-Squared Test of Independence",
+                refs=list(
+                    "agresti2013",
+                    "agresti2022",
+                    "alberti2024",
+                    "campbell2007",
+                    "fuchs1980",
+                    "lin2015",
+                    "phipson2010",
+                    "rasch2011",
+                    "rhoades1982",
+                    "richardson2011",
+                    "roscoe1971",
+                    "upton1982",
+                    "utts2014",
+                    "zar2014"))
             self$add(jmvcore::Table$new(
                 options=options,
                 name="crosstabTable",
@@ -171,11 +178,28 @@ chisqtestResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
                     "rows",
                     "cols"),
                 columns=list()))
-            self$add(jmvcore::Html$new(
+            self$add(jmvcore::Table$new(
                 options=options,
-                name="methodGuidance",
-                title="Method Selection Guidance",
-                visible="(showMethodGuidance)"))
+                name="tableCharacteristics",
+                title="Table Characteristics",
+                rows=0,
+                clearWith=list(
+                    "rows",
+                    "cols"),
+                columns=list(
+                    list(
+                        `name`="characteristic", 
+                        `title`="Characteristic", 
+                        `type`="text"),
+                    list(
+                        `name`="value", 
+                        `title`="Value", 
+                        `type`="text")),
+                refs=list(
+                    "alberti2024",
+                    "rhoades1982",
+                    "roscoe1971",
+                    "zar2014")))
             self$add(jmvcore::Table$new(
                 options=options,
                 name="testResults",
@@ -183,10 +207,6 @@ chisqtestResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
                 clearWith=list(
                     "rows",
                     "cols",
-                    "traditionalTest",
-                    "n1Test",
-                    "permTest",
-                    "monteCarloTest",
                     "nPerms",
                     "seed"),
                 columns=list(
@@ -210,7 +230,12 @@ chisqtestResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
                         `name`="pvalue", 
                         `title`="p", 
                         `type`="number", 
-                        `format`="zto,pvalue"))))
+                        `format`="zto,pvalue")),
+                refs=list(
+                    "alberti2024",
+                    "campbell2007",
+                    "fuchs1980",
+                    "lin2015")))
             self$add(jmvcore::Image$new(
                 options=options,
                 name="permDistPlot",
@@ -327,8 +352,6 @@ chisqtestBase <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
 #' @param nPerms number of permutations or Monte Carlo replications (default:
 #'   999)
 #' @param seed random seed for reproducibility (default: 123)
-#' @param showMethodGuidance TRUE or FALSE (default: TRUE), display guidance
-#'   for selecting an appropriate testing method based on table characteristics
 #' @param showDistributions TRUE or FALSE (default: FALSE), plot distributions
 #'   of permutation and Monte Carlo test statistics
 #' @param showMethodInfo TRUE or FALSE (default: FALSE), display detailed
@@ -337,7 +360,7 @@ chisqtestBase <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
 #' \tabular{llllll}{
 #'   \code{results$crosstabTable} \tab \tab \tab \tab \tab a table \cr
 #'   \code{results$expectedTable} \tab \tab \tab \tab \tab a table \cr
-#'   \code{results$methodGuidance} \tab \tab \tab \tab \tab a html \cr
+#'   \code{results$tableCharacteristics} \tab \tab \tab \tab \tab a table \cr
 #'   \code{results$testResults} \tab \tab \tab \tab \tab a table \cr
 #'   \code{results$permDistPlot} \tab \tab \tab \tab \tab an image \cr
 #'   \code{results$mcDistPlot} \tab \tab \tab \tab \tab an image \cr
@@ -364,7 +387,6 @@ chisqtest <- function(
     mTest = FALSE,
     nPerms = 999,
     seed = 123,
-    showMethodGuidance = TRUE,
     showDistributions = FALSE,
     showMethodInfo = FALSE) {
 
@@ -395,7 +417,6 @@ chisqtest <- function(
         mTest = mTest,
         nPerms = nPerms,
         seed = seed,
-        showMethodGuidance = showMethodGuidance,
         showDistributions = showDistributions,
         showMethodInfo = showMethodInfo)
 

@@ -70,8 +70,6 @@ children:
         label: Display Options
         children:
           - type: CheckBox
-            name: showMethodGuidance
-          - type: CheckBox
             name: showDistributions
             enable: (permTest || monteCarloTest)
           - type: CheckBox

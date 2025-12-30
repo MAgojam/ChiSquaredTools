@@ -6,11 +6,11 @@ jms: '1.0'
 authors:
   - Gianmarco Alberti
 maintainer: Gianmarco Alberti <gianmarcoalberti@gmail.com>
-date: '2025-11-25'
+date: '2025-12-30'
 type: R
 description: >-
   Comprehensive toolkit for chi-squared analysis of contingency tables. Includes
-  five analytical facilities: (1) Chi-squared testing with traditional, (N-1)/N
+  seven analytical facilities: (1) Chi-squared testing with traditional, (N-1)/N
   adjusted, permutation, Monte Carlo, and M test (maximum adjusted residual)
   methods; (2) Post-hoc analysis with cell-level metrics including standardised
   residuals, moment-corrected standardised residuals, adjusted standardised
@@ -19,13 +19,15 @@ description: >-
   (standardised and adjusted), Goodman-Kruskal residuals, and Difference in
   Estimated Proportions (DEP); (3) Association measures with over 20
   coefficients organised by statistical foundation, including chi-squared-based,
-  margin-free, and PRE measures; (4) Hierarchical clustering using Ward's method
-  with chi-squared distance and significance testing; (5) Stratified analysis
-  with Cochran-Mantel-Haenszel test for conditional independence and log-linear
-  homogeneity test, supporting any R×C table dimensions. Features toggleable
-  method explanations with rationale and usage guidance, automatic significance
-  highlighting, forest and trajectory plots, diagnostic decision trees, and
-  proper academic citations.
+  margin-free, and PRE measures; (4) Power analysis for a priori sample size
+  determination, post-hoc power calculation, and sensitivity analysis; (5)
+  Hierarchical clustering using Ward's method with chi-squared distance and
+  significance testing; (6) Stratified analysis for 2x2xK tables with
+  Cochran-Mantel-Haenszel test, Breslow-Day-Tarone homogeneity test, and forest
+  plots; (7) Stratified analysis for RxCxK tables with generalised CMH test,
+  log-linear homogeneity test, and trajectory plots. Features toggleable method
+  explanations with rationale and usage guidance, automatic significance
+  highlighting, diagnostic decision trees, and proper academic citations.
 analyses:
   - title: Chi-Squared Test of Independence
     name: chisqtest
@@ -55,6 +57,13 @@ analyses:
     menuTitle: Post-Hoc Analysis
     description: Comprehensive post-hoc analysis for chi-squared tests of independence.
     menuGroup: Chi² Tools
+  - title: Power Analysis for Chi-Squared Test
+    name: chisqpower
+    ns: ChiSquaredTools
+    category: analyses
+    menuGroup: Chi² Tools
+    menuTitle: Power Analysis
+    description: Power analysis for chi-squared tests of independence.
   - title: Contingency Table Row/Column Clustering
     name: chisqcluster
     ns: ChiSquaredTools

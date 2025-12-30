@@ -1,0 +1,216 @@
+---
+name: chisqpower
+title: Power Analysis for Chi-Squared Test
+menuGroup: Chi² Tools
+menuTitle: Power Analysis
+version: '1.0.0'
+jas: '1.2'
+description:
+    main: |
+        Power analysis for chi-squared tests of independence.
+        
+        Provides three types of analysis:
+        - A priori: Calculate required sample size given effect size, alpha, and power
+        - Post-hoc: Calculate achieved power given effect size, alpha, and sample size
+        - Sensitivity: Calculate detectable effect size given alpha, power, and sample size
+        
+        Effect sizes can be specified as Cohen's w or Cramér's V. Conventional 
+        effect size thresholds (small = 0.1, medium = 0.3, large = 0.5) are available.
+        
+        Results include detailed parameter tables, sample size reference tables for
+        planning, and power curve visualisations.
+        
+    R:
+        dontrun: false
+        usage: |
+            # A priori power analysis: How many participants needed?
+            chisqpower(
+                analysisType = 'apriori',
+                nRows = 3,
+                nCols = 4,
+                effectSize = 0.3,
+                alpha = 0.05,
+                power = 0.80
+            )
+            
+            # Post-hoc power analysis: What power did my study have?
+            chisqpower(
+                analysisType = 'posthoc',
+                nRows = 2,
+                nCols = 2,
+                effectSize = 0.25,
+                alpha = 0.05,
+                n = 100
+            )
+            
+            # Sensitivity analysis: What effect could I detect?
+            chisqpower(
+                analysisType = 'sensitivity',
+                nRows = 3,
+                nCols = 3,
+                alpha = 0.05,
+                power = 0.80,
+                n = 200
+            )
+
+completeWhenFilled: false
+
+options:
+    - name: data
+      type: Data
+      description:
+          R: >
+            not used for power analysis; included for compatibility
+
+    # Analysis type selection
+    - name: analysisType
+      title: Analysis Type
+      type: List
+      options:
+        - name: apriori
+          title: A priori (compute required N)
+        - name: posthoc
+          title: Post-hoc (compute achieved power)
+        - name: sensitivity
+          title: Sensitivity (compute detectable effect size)
+      default: apriori
+      description:
+          R: >
+            type of power analysis: 'apriori' (default) computes required sample size,
+            'posthoc' computes achieved power, 'sensitivity' computes minimum 
+            detectable effect size
+
+    # Table dimensions
+    - name: nRows
+      title: Number of rows
+      type: Integer
+      min: 2
+      max: 20
+      default: 2
+      description:
+          R: >
+            number of rows in the contingency table (minimum 2, default 2)
+
+    - name: nCols
+      title: Number of columns
+      type: Integer
+      min: 2
+      max: 20
+      default: 2
+      description:
+          R: >
+            number of columns in the contingency table (minimum 2, default 2)
+
+    # Effect size specification
+    - name: esType
+      title: Effect size type
+      type: List
+      options:
+        - name: w
+          title: "Cohen's w"
+        - name: v
+          title: "Cramér's V"
+        - name: conventional
+          title: Conventional thresholds
+      default: w
+      description:
+          R: >
+            type of effect size: 'w' for Cohen's w (default), 'v' for Cramér's V,
+            or 'conventional' for preset thresholds
+
+    - name: effectSize
+      title: Effect size value
+      type: Number
+      min: 0.001
+      max: 2
+      default: 0.3
+      description:
+          R: >
+            effect size value (Cohen's w or Cramér's V depending on esType).
+            Default is 0.3 (medium effect for Cohen's w).
+
+    - name: esConventional
+      title: Conventional effect size
+      type: List
+      options:
+        - name: small
+          title: Small (w = 0.1)
+        - name: medium
+          title: Medium (w = 0.3)
+        - name: large
+          title: Large (w = 0.5)
+      default: medium
+      description:
+          R: >
+            conventional effect size threshold: 'small' (w = 0.1), 
+            'medium' (w = 0.3, default), or 'large' (w = 0.5)
+
+    # Statistical parameters
+    - name: alpha
+      title: Significance level (α)
+      type: Number
+      min: 0.001
+      max: 0.5
+      default: 0.05
+      description:
+          R: >
+            significance level (Type I error rate). Default is 0.05.
+
+    - name: power
+      title: Target power (1 − β)
+      type: Number
+      min: 0.1
+      max: 0.999
+      default: 0.80
+      description:
+          R: >
+            target statistical power (1 minus Type II error rate). 
+            Default is 0.80. Used for a priori and sensitivity analyses.
+
+    - name: n
+      title: Sample size (N)
+      type: Integer
+      min: 4
+      max: 1000000
+      default: 100
+      description:
+          R: >
+            total sample size. Used for post-hoc and sensitivity analyses.
+            Default is 100.
+
+    # Display options
+    - name: showRefTable
+      title: Show sample size reference table
+      type: Bool
+      default: true
+      description:
+          R: >
+            TRUE (default) or FALSE, display a reference table showing
+            required sample sizes across effect sizes and power levels
+
+    - name: showPowerCurve
+      title: Show power curve plot
+      type: Bool
+      default: true
+      description:
+          R: >
+            TRUE (default) or FALSE, display the power curve visualisation
+
+    - name: showESCurve
+      title: Show effect size sensitivity curve
+      type: Bool
+      default: false
+      description:
+          R: >
+            TRUE or FALSE (default), display effect size sensitivity curve
+            showing detectable effect across sample sizes
+
+    - name: showMethodInfo
+      title: Show method explanation
+      type: Bool
+      default: false
+      description:
+          R: >
+            TRUE or FALSE (default), display detailed methodological
+            explanations for power analysis
+...

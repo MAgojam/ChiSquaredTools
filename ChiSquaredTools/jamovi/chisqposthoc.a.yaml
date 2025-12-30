@@ -111,7 +111,7 @@ options:
     - name: adjstdres
       title: Adjusted Standardised Residuals
       type: Bool
-      default: false
+      default: true
       description:
           R: >
             TRUE or FALSE (default: FALSE), compute adjusted standardised residuals
@@ -149,7 +149,7 @@ options:
       type: Integer
       min: 1
       max: 100
-      default: 5
+      default: 2
       description:
           R: >
             maximum number of potential outlier cells to test in backwards-stepping
@@ -226,12 +226,12 @@ options:
     - name: confLevel
       title: Confidence Level (for PEM)
       type: Number
-      min: 0.5
-      max: 0.999
-      default: 0.95
+      min: 50
+      max: 99.9
+      default: 95
       description:
           R: >
-            confidence level for PEM bootstrap confidence intervals (default: 0.95)
+            confidence level as percentage for PEM bootstrap confidence intervals (default: 0.95)
 
     - name: bootstrapReps
       title: Bootstrap Replications (for PEM)
@@ -253,15 +253,6 @@ options:
       description:
           R: >
             random seed for reproducibility (default: 123)
-
-    - name: showSignificanceTables
-      title: Show significance summary tables
-      type: Bool
-      default: false
-      description:
-          R: >
-            TRUE or FALSE (default: FALSE), display tables summarising significant
-            positive, negative, and non-significant cell patterns
 
     - name: showPemPlot
       title: Show PEM forest plot

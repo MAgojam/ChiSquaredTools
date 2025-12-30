@@ -6,11 +6,86 @@ chisqclusterClass <- R6::R6Class(
   inherit = chisqclusterBase,
   private = list(
     
+    # -------------------------------------------------------------------------
+    # Initialise: pre-build table structure
+    # -------------------------------------------------------------------------
+    .init = function() {
+      
+      # Early return if no variables selected
+      if (is.null(self$options$rows) || is.null(self$options$cols))
+        return()
+      
+      rowVar <- self$options$rows
+      colVar <- self$options$cols
+      
+      data <- self$data
+      
+      # Ensure factors
+      if (!is.factor(data[[rowVar]]))
+        data[[rowVar]] <- as.factor(data[[rowVar]])
+      if (!is.factor(data[[colVar]]))
+        data[[colVar]] <- as.factor(data[[colVar]])
+      
+      # Get levels
+      row_levels <- levels(data[[rowVar]])
+      col_levels <- levels(data[[colVar]])
+      
+      I <- length(row_levels)
+      J <- length(col_levels)
+      
+      # Store for later use in .run()
+      private$.rowLevels <- row_levels
+      private$.colLevels <- col_levels
+      private$.I <- I
+      private$.J <- J
+      
+      # ---------------------------------------------------------------------
+      # 1. Crosstab Table - pre-build structure
+      # ---------------------------------------------------------------------
+      crosstab <- self$results$crosstabTable
+      crosstab$setTitle(paste0(rowVar, " × ", colVar))
+      
+      crosstab$addColumn(name = 'rowName', title = rowVar, type = 'text')
+      for (j in seq_len(J)) {
+        crosstab$addColumn(name = paste0('col', j), title = col_levels[j], 
+                           type = 'integer', superTitle = colVar)
+      }
+      crosstab$addColumn(name = 'rowTotal', title = 'Total', type = 'integer')
+      
+      # Pre-add rows (including total)
+      for (i in seq_len(I)) {
+        crosstab$addRow(rowKey = paste0('row', i), values = list(rowName = row_levels[i]))
+      }
+      crosstab$addRow(rowKey = 'total', values = list(rowName = 'Total'))
+      
+      # ---------------------------------------------------------------------
+      # 2. Row Cluster Table - pre-build rows (step 0 to I-1)
+      # ---------------------------------------------------------------------
+      rowClusterTable <- self$results$rowClusterTable
+      for (step in 0:(I - 1)) {
+        rowClusterTable$addRow(rowKey = paste0('step', step), values = list(step = step))
+      }
+      
+      # ---------------------------------------------------------------------
+      # 4. Column Cluster Table - pre-build rows (step 0 to J-1)
+      # ---------------------------------------------------------------------
+      colClusterTable <- self$results$colClusterTable
+      for (step in 0:(J - 1)) {
+        colClusterTable$addRow(rowKey = paste0('step', step), values = list(step = step))
+      }
+    },
+    
     .run = function() {
       
       if (is.null(self$options$rows) || is.null(self$options$cols)) {
         return()
       }
+      
+      # === CLEAR ALL FOOTNOTES FIRST ===
+      self$results$rowClusterTable$setNote('rowClusterSummary', NULL, init = FALSE)
+      self$results$rowGroupsTable$setNote('rowGroupsInterpretation', NULL, init = FALSE)
+      self$results$colClusterTable$setNote('colClusterSummary', NULL, init = FALSE)
+      self$results$colGroupsTable$setNote('colGroupsInterpretation', NULL, init = FALSE)
       
       rowVar <- self$options$rows
       colVar <- self$options$cols
@@ -39,172 +114,304 @@ chisqclusterClass <- R6::R6Class(
       # Always populate the crosstab
       private$.populateCrosstab(contingency_table)
       
-      # Perform clustering analysis
+      # Perform clustering analysis - row clustering
       tryCatch({
-        # Row clustering
         row_result <- private$.clusterContingency(contingency_table, dim = "row")
-        private$.populateRowResults(row_result)
-        
-        # Column clustering
-        col_result <- private$.clusterContingency(contingency_table, dim = "col")
-        private$.populateColResults(col_result)
-        
-        # Store results for plotting
         private$.rowClusterResult <- row_result
-        private$.colClusterResult <- col_result
-        
+        private$.populateRowResults(row_result)
       }, error = function(e) {
-        # If clustering fails (e.g., table too small), show error message
-        self$results$rowClusterSummary$setContent(
-          paste0("<div style='color: red; padding: 10px;'>",
-                 "WARNING: ", e$message, "</div>")
-        )
+        self$results$rowClusterTable$setNote('clusterError', 
+                                             paste0("Row clustering error: ", e$message), init = FALSE)
+      })
+      
+      # Perform clustering analysis - column clustering
+      tryCatch({
+        col_result <- private$.clusterContingency(contingency_table, dim = "col")
+        private$.colClusterResult <- col_result
+        private$.populateColResults(col_result)
+      }, error = function(e) {
+        self$results$colClusterTable$setNote('clusterError', 
+                                             paste0("Column clustering error: ", e$message), init = FALSE)
       })
       
       # Populate method info and references
       private$.populateMethodInfo()
-      private$.populateReferences()
     },
     
     .populateCrosstab = function(contingency_table) {
       
       crosstab <- self$results$crosstabTable
       
-      row_names <- rownames(contingency_table)
-      col_names <- colnames(contingency_table)
+      I <- private$.I
+      J <- private$.J
       
-      rowVar <- self$options$rows
-      colVar <- self$options$cols
-      
-      # Set table title
-      crosstab$setTitle(paste0(rowVar, " × ", colVar))
-      
-      # Add row names column
-      crosstab$addColumn(
-        name = "rowName",
-        title = rowVar,
-        type = "text"
-      )
-      
-      # Add data columns with superTitle
-      for (j in seq_along(col_names)) {
-        crosstab$addColumn(
-          name = paste0("col", j),
-          title = col_names[j],
-          type = "integer",
-          superTitle = colVar
-        )
-      }
-      
-      # Add row total column
-      crosstab$addColumn(
-        name = "rowTotal",
-        title = "Total",
-        type = "integer"
-      )
-      
-      # Populate data rows
-      for (i in seq_along(row_names)) {
-        values <- list(rowName = row_names[i])
-        for (j in seq_along(col_names)) {
-          values[[paste0("col", j)]] <- as.integer(contingency_table[i, j])
+      # Fill pre-existing rows using setRow
+      for (i in seq_len(I)) {
+        row_values <- list()
+        for (j in seq_len(J)) {
+          row_values[[paste0('col', j)]] <- as.integer(contingency_table[i, j])
         }
-        values[["rowTotal"]] <- sum(contingency_table[i, ])
-        crosstab$addRow(rowKey = i, values = values)
+        row_values[['rowTotal']] <- sum(contingency_table[i, ])
+        
+        crosstab$setRow(rowKey = paste0('row', i), values = row_values)
       }
       
-      # Add total row
-      total_values <- list(rowName = "Total")
-      for (j in seq_along(col_names)) {
-        total_values[[paste0("col", j)]] <- sum(contingency_table[, j])
+      # Total row
+      total_values <- list()
+      for (j in seq_len(J)) {
+        total_values[[paste0('col', j)]] <- sum(contingency_table[, j])
       }
-      total_values[["rowTotal"]] <- sum(contingency_table)
-      crosstab$addRow(rowKey = "total", values = total_values)
+      total_values[['rowTotal']] <- sum(contingency_table)
+      
+      crosstab$setRow(rowKey = 'total', values = total_values)
     },
     
     .getCriticalChiSquare = function(nrow, ncol) {
-      # Critical values table from Greenacre (2017), Exhibit A.1, p.254
-      # Source: Pearson & Hartley (1972), Biometrika Tables
+      # Critical values from Pearson & Hartley (1972), Biometrika Tables for
       
-      critical_values <- matrix(NA, nrow = 13, ncol = 11)
+      # Statisticians, Volume 2, Table 51: Upper percentage points C(α) of
       
-      # Populate the critical values table
-      critical_values[3, 3] <- 8.59
-      critical_values[4, 3] <- 10.74
-      critical_values[4, 4] <- 13.11
-      critical_values[5, 3] <- 12.68
-      critical_values[5, 4] <- 15.24
-      critical_values[5, 5] <- 17.52
-      critical_values[6, 3] <- 14.49
-      critical_values[6, 4] <- 17.21
-      critical_values[6, 5] <- 19.63
-      critical_values[6, 6] <- 21.85
-      critical_values[7, 3] <- 16.21
-      critical_values[7, 4] <- 19.09
-      critical_values[7, 5] <- 21.62
-      critical_values[7, 6] <- 23.95
-      critical_values[7, 7] <- 26.14
-      critical_values[8, 3] <- 17.88
-      critical_values[8, 4] <- 20.88
-      critical_values[8, 5] <- 23.53
-      critical_values[8, 6] <- 25.96
-      critical_values[8, 7] <- 28.23
-      critical_values[8, 8] <- 30.40
-      critical_values[9, 3] <- 19.49
-      critical_values[9, 4] <- 22.62
-      critical_values[9, 5] <- 25.37
-      critical_values[9, 6] <- 27.88
-      critical_values[9, 7] <- 30.24
-      critical_values[9, 8] <- 32.48
-      critical_values[9, 9] <- 34.63
-      critical_values[10, 3] <- 21.06
-      critical_values[10, 4] <- 24.31
-      critical_values[10, 5] <- 27.15
-      critical_values[10, 6] <- 29.75
-      critical_values[10, 7] <- 32.18
-      critical_values[10, 8] <- 34.50
-      critical_values[10, 9] <- 36.70
-      critical_values[10, 10] <- 38.84
-      critical_values[11, 3] <- 22.61
-      critical_values[11, 4] <- 25.96
-      critical_values[11, 5] <- 28.90
-      critical_values[11, 6] <- 31.57
-      critical_values[11, 7] <- 34.08
-      critical_values[11, 8] <- 36.45
-      critical_values[11, 9] <- 38.72
-      critical_values[11, 10] <- 40.91
-      critical_values[11, 11] <- 43.04
-      critical_values[12, 3] <- 24.12
-      critical_values[12, 4] <- 27.58
-      critical_values[12, 5] <- 30.60
-      critical_values[12, 6] <- 33.35
-      critical_values[12, 7] <- 35.93
-      critical_values[12, 8] <- 38.36
-      critical_values[12, 9] <- 40.69
-      critical_values[12, 10] <- 42.93
-      critical_values[12, 11] <- 45.10
-      critical_values[13, 3] <- 25.61
-      critical_values[13, 4] <- 29.17
-      critical_values[13, 5] <- 32.27
-      critical_values[13, 6] <- 35.09
-      critical_values[13, 7] <- 37.73
-      critical_values[13, 8] <- 40.22
-      critical_values[13, 9] <- 42.60
-      critical_values[13, 10] <- 44.90
-      critical_values[13, 11] <- 47.12
+      # largest root, at α = 0.05.
+      #
+      # For an I×J contingency table:
+      #   p = min(I-1, J-1)
+      #   ν (nu) = max(I-1, J-1)
+      #
+      # The matrix below is indexed as: critical_values[nu, p]
+      # where nu ranges from 2 to 100 (rows) and p ranges from 2 to 10 (columns).
+      #
+      # Values for nu > 100 or p > 10 are not available in the published tables.
       
-      # Handle table symmetry
-      if (nrow >= 3 && nrow <= 13 && ncol >= 3 && ncol <= 11) {
-        return(critical_values[nrow, ncol])
-      } else if (ncol >= 3 && ncol <= 13 && nrow >= 3 && nrow <= 11) {
-        return(critical_values[ncol, nrow])
-      } else if (nrow < 3 || ncol < 3) {
+      # Determine p and nu from table dimensions
+      p <- min(nrow - 1, ncol - 1)
+      nu <- max(nrow - 1, ncol - 1)
+      
+      
+      # Check bounds
+      
+      if (p < 2 || nu < 2) {
         stop(paste0("Table too small (", nrow, "×", ncol, 
-                    "). Critical values only available for tables ≥ 3×3."))
-      } else {
-        stop(paste0("Table too large (", nrow, "×", ncol, 
-                    "). Critical values only available for tables up to 13×11."))
+                    "). Clustering requires at least a 3×3 table."))
       }
+      
+      if (p > 10) {
+        stop(paste0("Table dimensions (", nrow, "×", ncol, 
+                    ") exceed available critical values. The smaller dimension must be ≤ 11 ",
+                    "(i.e., min(rows, columns) ≤ 11). Critical values from Pearson & Hartley (1972, Table 51) ",
+                    "are only tabulated for p = min(I−1, J−1) ≤ 10."))
+      }
+      
+      if (nu > 100) {
+        stop(paste0("Table dimensions (", nrow, "×", ncol, 
+                    ") exceed available critical values. The larger dimension must be ≤ 101 ",
+                    "(i.e., max(rows, columns) ≤ 101). Critical values from Pearson & Hartley (1972, Table 51) ",
+                    "are only tabulated for ν = max(I−1, J−1) ≤ 100."))
+      }
+      
+      # Critical values matrix: rows = nu (2:100), columns = p (2:10)
+      # Index as: cv[nu, p] directly (nu and p are 1-based indices matching their values)
+      # We'll use a sparse approach: create a lookup list keyed by "nu,p"
+      
+      cv <- list(
+        # p = 2
+        "2,2" = 8.594, "3,2" = 10.74, "4,2" = 12.68, "5,2" = 14.49, 
+        "6,2" = 16.21, "7,2" = 17.88, "8,2" = 19.49, "9,2" = 21.06,
+        "10,2" = 22.61, "11,2" = 24.12, "12,2" = 25.61,
+        "14,2" = 28.53, "19,2" = 35.59, "24,2" = 42.07, "29,2" = 48.27,
+        "39,2" = 60.02, "49,2" = 75.46, "59,2" = 87.66, "69,2" = 99.70,
+        "79,2" = 111.6, "89,2" = 123.4, "99,2" = 135.0,
+        
+        # p = 3
+        "3,3" = 13.11, "4,3" = 15.24, "5,3" = 17.21, "6,3" = 19.09,
+        "7,3" = 20.88, "8,3" = 22.62, "9,3" = 24.31, "10,3" = 25.96,
+        "11,3" = 27.58, "12,3" = 29.17,
+        "14,3" = 32.27, "19,3" = 39.52, "24,3" = 46.27, "29,3" = 52.80,
+        "39,3" = 68.50, "49,3" = 81.44, "59,3" = 94.09, "69,3" = 106.5,
+        "79,3" = 118.8, "89,3" = 130.9, "99,3" = 143.0,
+        
+        # p = 4
+        "4,4" = 17.52, "5,4" = 19.63, "6,4" = 21.62, "7,4" = 23.53,
+        "8,4" = 25.37, "9,4" = 27.15, "10,4" = 28.90, "11,4" = 30.60,
+        "12,4" = 32.27,
+        "14,4" = 35.52, "19,4" = 43.08, "24,4" = 50.27, "29,4" = 57.24,
+        "39,4" = 76.18, "49,4" = 89.73, "59,4" = 102.9, "69,4" = 115.9,
+        "79,4" = 128.6, "89,4" = 141.2, "99,4" = 153.6,
+        
+        # p = 5
+        "5,5" = 21.85, "6,5" = 23.95, "7,5" = 25.96, "8,5" = 27.88,
+        "9,5" = 29.75, "10,5" = 31.57, "11,5" = 33.35, "12,5" = 35.09,
+        "14,5" = 38.57, "19,5" = 46.44, "24,5" = 53.95, "29,5" = 61.29,
+        "39,5" = 83.29, "49,5" = 102.9, "59,5" = 117.0, "69,5" = 130.9,
+        "79,5" = 144.4, "89,5" = 157.8, "99,5" = 170.9,
+        
+        # p = 6
+        "6,6" = 26.14, "7,6" = 28.23, "8,6" = 30.24, "9,6" = 32.18,
+        "10,6" = 34.08, "11,6" = 35.93, "12,6" = 37.73,
+        "14,6" = 41.46, "19,6" = 49.64, "24,6" = 57.46, "29,6" = 65.12,
+        "39,6" = 88.29, "49,6" = 102.9, "59,6" = 117.0, "69,6" = 130.9,
+        "79,6" = 144.4, "89,6" = 157.8, "99,6" = 170.9,
+        
+        # p = 7
+        "7,7" = 30.40, "8,7" = 32.48, "9,7" = 34.50, "10,7" = 36.45,
+        "11,7" = 38.36, "12,7" = 40.22,
+        "14,7" = 44.22, "19,7" = 52.70, "24,7" = 60.83, "29,7" = 68.77,
+        "39,7" = 91.57, "49,7" = 106.4, "59,7" = 120.8, "69,7" = 134.8,
+        "79,7" = 148.6, "89,7" = 162.1, "99,7" = 175.4,
+        
+        # p = 8
+        "8,8" = 34.63, "9,8" = 36.70, "10,8" = 38.72, "11,8" = 40.69,
+        "12,8" = 42.60,
+        "14,8" = 46.86, "19,8" = 55.62, "24,8" = 64.04, "29,8" = 72.26,
+        "39,8" = 96.11, "49,8" = 111.2, "59,8" = 125.8, "69,8" = 140.1,
+        "79,8" = 154.0, "89,8" = 167.8, "99,8" = 181.3,
+        
+        # p = 9
+        "9,9" = 38.84, "10,9" = 40.91, "11,9" = 42.93, "12,9" = 44.90,
+        "14,9" = 49.40, "19,9" = 58.43, "24,9" = 67.11, "29,9" = 75.60,
+        "39,9" = 99.43, "49,9" = 114.8, "59,9" = 129.6, "69,9" = 144.1,
+        "79,9" = 158.2, "89,9" = 172.1, "99,9" = 185.8,
+        
+        # p = 10
+        "10,10" = 43.04, "11,10" = 45.10, "12,10" = 47.12,
+        "14,10" = 51.86, "19,10" = 61.14, "24,10" = 70.07, "29,10" = 78.81,
+        "39,10" = 102.6, "49,10" = 118.2, "59,10" = 133.3, "69,10" = 147.9,
+        "79,10" = 162.2, "89,10" = 176.3, "99,10" = 190.1
+      )
+      
+      # Direct lookup
+      key <- paste0(nu, ",", p)
+      if (key %in% names(cv)) {
+        return(cv[[key]])
+      }
+      
+      # If exact value not in table, interpolate between available nu values
+      # Find bracketing nu values for this p
+      available_nu <- as.integer(sapply(strsplit(names(cv)[grepl(paste0(",", p, "$"), names(cv))], ","), `[`, 1))
+      available_nu <- sort(available_nu)
+      
+      if (length(available_nu) == 0) {
+        stop(paste0("No critical values available for p = ", p))
+      }
+      
+      # Find bracketing values
+      lower_nu <- max(available_nu[available_nu <= nu], na.rm = TRUE)
+      upper_nu <- min(available_nu[available_nu >= nu], na.rm = TRUE)
+      
+      if (is.infinite(lower_nu) || is.infinite(upper_nu)) {
+        stop(paste0("Cannot interpolate critical value for nu = ", nu, ", p = ", p))
+      }
+      
+      if (lower_nu == upper_nu) {
+        # Exact match found via bracketing
+        return(cv[[paste0(lower_nu, ",", p)]])
+      }
+      
+      # Linear interpolation
+      lower_cv <- cv[[paste0(lower_nu, ",", p)]]
+      upper_cv <- cv[[paste0(upper_nu, ",", p)]]
+      
+      interpolated <- lower_cv + (upper_cv - lower_cv) * (nu - lower_nu) / (upper_nu - lower_nu)
+      
+      return(interpolated)
+    },
+    
+    # -------------------------------------------------------------------------
+    # Find optimal partition using inertia gain ratio (Husson et al., 2017)
+    # -------------------------------------------------------------------------
+    .findOptimalPartitionInertia = function(merge_stats, qmin = 2, qmax = NULL) {
+      # merge_stats has columns: step, items_merged, groups_remaining, 
+      #                          chi_square, reduction, reduction_percent
+      # 
+      
+      # At step k, we have (n - k) clusters remaining, where n = total items.
+      # The 'reduction' column gives Δ(q) = chi²_before - chi²_after for each merge.
+      #
+      # Husson criterion: find q that minimises Δ(q) / Δ(q+1)
+      # where q is the number of clusters AFTER the merge.
+      #
+      # In our merge_stats:
+      #   - step 0: n clusters (initial state, reduction = 0)
+      #   - step 1: n-1 clusters (first merge, reduction[2])
+      #   - step k: n-k clusters (reduction[k+1])
+      #
+      # To go from q clusters to q-1 clusters is step (n - q).
+      # Δ(q) = reduction at step (n - q + 1) in 1-indexed R terms.
+      
+      n_items <- nrow(merge_stats)  # This equals n (original number of items)
+      n <- n_items - 1  # Number of merges possible
+      
+      if (is.null(qmax)) {
+        qmax <- min(10, n)  # Default maximum clusters to consider
+      }
+      
+      # Ensure sensible bounds
+      qmin <- max(2, qmin)
+      qmax <- min(qmax, n)
+      
+      
+      if (qmax <= qmin) {
+        # Not enough range to compute ratios; return qmin
+        return(list(
+          optimal_clusters = qmin,
+          optimal_step = n - qmin,
+          ratios = NULL
+        ))
+      }
+      
+      # Compute ratios for each candidate q in [qmin, qmax]
+      # ratio(q) = Δ(q) / Δ(q+1)
+      # where Δ(q) is the inertia gain when going from q to q-1 clusters
+      
+      ratios <- data.frame(
+        q = integer(0),
+        delta_q = numeric(0),
+        delta_q_plus_1 = numeric(0),
+        ratio = numeric(0)
+      )
+      
+      for (q in qmax:(qmin + 1)) {
+        # Step to go from q clusters to q-1: step = n - q + 1 (but step is 0-indexed in merge_stats)
+        # In R 1-indexed: row index for this step is (n - q + 2)
+        step_q <- n - q + 1
+        step_q_plus_1 <- n - (q + 1) + 1  # = n - q
+        
+        # Reduction values (row indices are step + 1 due to step 0)
+        delta_q <- merge_stats$reduction[step_q + 1]
+        delta_q_plus_1 <- merge_stats$reduction[step_q_plus_1 + 1]
+        
+        # Avoid division by zero
+        if (delta_q_plus_1 > 0) {
+          r <- delta_q / delta_q_plus_1
+        } else {
+          r <- Inf
+        }
+        
+        ratios <- rbind(ratios, data.frame(
+          q = q,
+          delta_q = delta_q,
+          delta_q_plus_1 = delta_q_plus_1,
+          ratio = r
+        ))
+      }
+      
+      # Find q that minimises the ratio (largest relative jump)
+      if (nrow(ratios) == 0 || all(is.infinite(ratios$ratio))) {
+        optimal_q <- qmin
+      } else {
+        optimal_q <- ratios$q[which.min(ratios$ratio)]
+      }
+      
+      # Convert optimal_q to step number
+      optimal_step <- n_items - optimal_q
+      
+      # Verify: number of clusters at optimal_step
+      actual_clusters <- n_items - optimal_step
+      
+      list(
+        optimal_clusters = actual_clusters,
+        optimal_step = optimal_step,
+        ratios = ratios
+      )
     },
     
     .clusterContingency = function(crosstab, dim = "row") {
@@ -227,8 +434,19 @@ chisqclusterClass <- R6::R6Class(
       chi_init <- suppressWarnings(stats::chisq.test(as.matrix(orig_crosstab))$statistic)
       
       # Get critical value using ORIGINAL table dimensions
+      # Only required for Greenacre method; for Husson method, compute if possible but don't fail
       table_dims <- dim(orig_crosstab)
-      critical_value <- private$.getCriticalChiSquare(table_dims[1], table_dims[2])
+      partition_method <- self$options$partitionMethod
+      
+      critical_value <- tryCatch({
+        private$.getCriticalChiSquare(table_dims[1], table_dims[2])
+      }, error = function(e) {
+        if (partition_method == "greenacre") {
+          stop(e$message)  # Re-throw error for Greenacre method
+        } else {
+          NA  # For Husson method, proceed without critical value
+        }
+      })
       
       n <- nrow(crosstab)
       merge_stats <- data.frame(
@@ -351,21 +569,44 @@ chisqclusterClass <- R6::R6Class(
         active_clusters_history[[i+1]] <- current_labels
       }
       
-      # Find last significant step using the Greenacre/Hirotsu criterion:
-      # Stop merging when an individual merge reduction exceeds the critical threshold
+      # -----------------------------------------------------------------------
+      # Determine optimal partition based on selected method
+      # -----------------------------------------------------------------------
+      partition_method <- self$options$partitionMethod
       
-      sig_step <- 0
-      
-      # Start from step 1 (first merge) and check each reduction
-      for (i in 2:nrow(merge_stats)) {
-        # Check if this merge's reduction is below the critical threshold
-        if (merge_stats$reduction[i] < critical_value) {
-          # This merge is acceptable (small reduction = similar categories)
-          sig_step <- merge_stats$step[i]
-        } else {
-          # This merge exceeds the threshold - stop before it
-          break
+      if (partition_method == "inertia") {
+        # Husson et al. (2017) inertia gain ratio method
+        inertia_result <- private$.findOptimalPartitionInertia(merge_stats)
+        sig_step <- inertia_result$optimal_step
+        optimal_clusters <- inertia_result$optimal_clusters
+        
+        # For inertia method, we don't use critical_value for partition selection
+        # but we still compute it for reference/comparison
+        method_info <- list(
+          method = "inertia",
+          optimal_clusters = optimal_clusters,
+          ratios = inertia_result$ratios
+        )
+      } else {
+        # Greenacre (2017) critical chi-square method (default)
+        sig_step <- 0
+        
+        # Start from step 1 (first merge) and check each reduction
+        for (i in 2:nrow(merge_stats)) {
+          # Check if this merge's reduction is below the critical threshold
+          if (merge_stats$reduction[i] < critical_value) {
+            # This merge is acceptable (small reduction = similar categories)
+            sig_step <- merge_stats$step[i]
+          } else {
+            # This merge exceeds the threshold - stop before it
+            break
+          }
         }
+        
+        method_info <- list(
+          method = "greenacre",
+          critical_value = critical_value
+        )
       }
       
       # Get active clusters at significant step
@@ -456,39 +697,58 @@ chisqclusterClass <- R6::R6Class(
         initial_labels = orig_labels,
         merge_matrix = merge_matrix,
         height_vector = height_vector,
-        merge_order = orig_labels
+        merge_order = orig_labels,
+        method_info = method_info
       )
     },
     
     .populateRowResults = function(row_result) {
       
-      # Summary HTML
-      # Summary HTML with interpretation
+      # Build interpretation text based on partition method
       sig_step <- row_result$significant_step
-      interpretation <- if (sig_step == 0) {
-        "No rows can be merged without losing significant association—all rows are distinct."
-      } else if (sig_step == nrow(row_result$merge_statistics) - 1) {
-        "All rows can be merged into a single group—there is no significant heterogeneity among rows."
+      method_info <- row_result$method_info
+      
+      if (method_info$method == "inertia") {
+        # Inertia gain ratio method interpretation
+        interpretation <- if (sig_step == 0) {
+          "No rows can be merged—all rows are distinct."
+        } else if (sig_step == nrow(row_result$merge_statistics) - 1) {
+          "All rows can be merged into a single group—there is no heterogeneity among rows."
+        } else {
+          paste0("Optimal partition at step ", sig_step, " yields ", 
+                 method_info$optimal_clusters, " cluster",
+                 if(method_info$optimal_clusters > 1) "s" else "",
+                 " based on the largest relative drop in inertia gain. See Husson et al. (2017).")
+        }
+        
+        summary_text <- paste0(
+          "Initial χ² = ", sprintf("%.3f", row_result$initial_chi_square), "; ",
+          "Optimal clusters = ", method_info$optimal_clusters, "; ",
+          "Selected step = ", sig_step, ". ",
+          interpretation
+        )
       } else {
-        paste0("Merging is justified through step ", sig_step, ", at which point ", 
-               length(row_result$significant_membership), " distinct row group",
-               if(length(row_result$significant_membership) > 1) "s remain" else " remains",
-               " (shown below). Further merging would reduce the association below the significance threshold.")
+        # Greenacre critical chi-square method interpretation
+        interpretation <- if (sig_step == 0) {
+          "No rows can be merged without losing significant association—all rows are distinct."
+        } else if (sig_step == nrow(row_result$merge_statistics) - 1) {
+          "All rows can be merged into a single group—there is no significant heterogeneity among rows."
+        } else {
+          paste0("Merging is justified through step ", sig_step, ", at which point ", 
+                 length(row_result$significant_membership), " distinct row group",
+                 if(length(row_result$significant_membership) > 1) "s remain" else " remains",
+                 ". Further merging would reduce the association below the significance threshold. See Greenacre (2017).")
+        }
+        
+        summary_text <- paste0(
+          "Initial χ² = ", sprintf("%.3f", row_result$initial_chi_square), "; ",
+          "Critical value (p=0.05) = ", sprintf("%.3f", row_result$critical_value), "; ",
+          "Last significant step = ", sig_step, ". ",
+          interpretation
+        )
       }
       
-      summary_html <- paste0(
-        "<div style='font-size: 0.9em; color: #555; margin: 10px 0;'>",
-        "<p><strong>Initial χ²:</strong> ", sprintf("%.3f", row_result$initial_chi_square), " | ",
-        "<strong>Critical value (p=0.05):</strong> ", sprintf("%.3f", row_result$critical_value), " | ",
-        "<strong>Last significant step:</strong> ", sig_step, "</p>",
-        "<p style='margin-top: 8px; padding: 8px; background-color: #f0f8ff; border-left: 3px solid #2874A6;'>",
-        "<strong>Interpretation:</strong> ", interpretation, "</p>",
-        "</div>"
-      )
-      
-      self$results$rowClusterSummary$setContent(summary_html)
-      
-      # Populate merging sequence table
+      # Populate merging sequence table using setRow
       table <- self$results$rowClusterTable
       for (i in 1:nrow(row_result$merge_statistics)) {
         values <- list(
@@ -499,14 +759,19 @@ chisqclusterClass <- R6::R6Class(
           reduction = row_result$merge_statistics$reduction[i],
           reductionPercent = row_result$merge_statistics$reduction_percent[i]
         )
-        table$addRow(rowKey = i, values = values)
+        table$setRow(rowKey = paste0('step', i - 1), values = values)
       }
       
-      # Populate significant groups table
+      # Add summary as table footnote
+      table$setNote('rowClusterSummary', summary_text, init = FALSE)
+      
+      # Populate significant groups table using addRow
       groups_table <- self$results$rowGroupsTable
+      groups_table$deleteRows()  # <-- ADD THIS LINE
       row_groups <- private$.extractClusterGroups(row_result)
       
       group_num <- 1
+      
       for (group_name in names(row_groups)) {
         values <- list(
           groupName = paste("Group", group_num),
@@ -516,46 +781,61 @@ chisqclusterClass <- R6::R6Class(
         group_num <- group_num + 1
       }
       
-      # Add explanatory note
-      note_html <- paste0(
-        "<div style='font-size: 0.9em; color: #555; margin: 10px 0;'>",
-        "<p><strong>Interpretation:</strong> These groups represent row categories that are statistically similar ",
-        "in their relationship with the column variable. Categories within the same group have been merged ",
-        "without reducing the chi-squared statistic below the critical threshold (p=0.05). This means they can ",
-        "be treated as equivalent for practical purposes—their column profiles are so similar that ",
-        "distinguishing between them does not contribute meaningfully to the overall association.</p>",
-        "</div>"
+      # Add interpretation as table footnote
+      groups_note <- paste0(
+        "Groups contain row categories with similar column profiles. ",
+        "Categories within a group can be treated as equivalent without materially affecting the association."
       )
-      self$results$rowGroupsNote$setContent(note_html)
+      groups_table$setNote('rowGroupsInterpretation', groups_note, init = FALSE)
     },
     
     .populateColResults = function(col_result) {
       
-      # Summary HTML with interpretation
+      # Build interpretation text based on partition method
       sig_step <- col_result$significant_step
-      interpretation <- if (sig_step == 0) {
-        "No columns can be merged without losing significant association—all columns are distinct."
-      } else if (sig_step == nrow(col_result$merge_statistics) - 1) {
-        "All columns can be merged into a single group—there is no significant heterogeneity among columns."
+      method_info <- col_result$method_info
+      
+      if (method_info$method == "inertia") {
+        # Inertia gain ratio method interpretation
+        interpretation <- if (sig_step == 0) {
+          "No columns can be merged—all columns are distinct."
+        } else if (sig_step == nrow(col_result$merge_statistics) - 1) {
+          "All columns can be merged into a single group—there is no heterogeneity among columns."
+        } else {
+          paste0("Optimal partition at step ", sig_step, " yields ", 
+                 method_info$optimal_clusters, " cluster",
+                 if(method_info$optimal_clusters > 1) "s" else "",
+                 " based on the largest relative drop in inertia gain. See Husson et al. (2017).")
+        }
+        
+        summary_text <- paste0(
+          "Initial χ² = ", sprintf("%.3f", col_result$initial_chi_square), "; ",
+          "Optimal clusters = ", method_info$optimal_clusters, "; ",
+          "Selected step = ", sig_step, ". ",
+          interpretation
+        )
       } else {
-        paste0("Merging is justified through step ", sig_step, ", at which point ", 
-               length(col_result$significant_membership), " distinct column group",
-               if(length(col_result$significant_membership) > 1) "s remain" else " remains",
-               " (shown below). Further merging would reduce the association below the significance threshold.")
+        # Greenacre critical chi-square method interpretation
+        interpretation <- if (sig_step == 0) {
+          "No columns can be merged without losing significant association—all columns are distinct."
+        } else if (sig_step == nrow(col_result$merge_statistics) - 1) {
+          "All columns can be merged into a single group—there is no significant heterogeneity among columns."
+        } else {
+          paste0("Merging is justified through step ", sig_step, ", at which point ", 
+                 length(col_result$significant_membership), " distinct column group",
+                 if(length(col_result$significant_membership) > 1) "s remain" else " remains",
+                 ". Further merging would reduce the association below the significance threshold. See Greenacre (2017).")
+        }
+        
+        summary_text <- paste0(
+          "Initial χ² = ", sprintf("%.3f", col_result$initial_chi_square), "; ",
+          "Critical value (p=0.05) = ", sprintf("%.3f", col_result$critical_value), "; ",
+          "Last significant step = ", sig_step, ". ",
+          interpretation
+        )
       }
       
-      summary_html <- paste0(
-        "<div style='font-size: 0.9em; color: #555; margin: 10px 0;'>",
-        "<p><strong>Initial χ²:</strong> ", sprintf("%.3f", col_result$initial_chi_square), " | ",
-        "<strong>Critical value (p=0.05):</strong> ", sprintf("%.3f", col_result$critical_value), " | ",
-        "<strong>Last significant step:</strong> ", sig_step, "</p>",
-        "<p style='margin-top: 8px; padding: 8px; background-color: #f0f8ff; border-left: 3px solid #2874A6;'>",
-        "<strong>Interpretation:</strong> ", interpretation, "</p>",
-        "</div>"
-      )
-      self$results$colClusterSummary$setContent(summary_html)
-      
-      # Populate merging sequence table
+      # Populate merging sequence table using setRow
       table <- self$results$colClusterTable
       for (i in 1:nrow(col_result$merge_statistics)) {
         values <- list(
@@ -566,14 +846,25 @@ chisqclusterClass <- R6::R6Class(
           reduction = col_result$merge_statistics$reduction[i],
           reductionPercent = col_result$merge_statistics$reduction_percent[i]
         )
-        table$addRow(rowKey = i, values = values)
+        table$setRow(rowKey = paste0('step', i - 1), values = values)
       }
       
-      # Populate significant groups table
+      # Add summary as table footnote
+      summary_text <- paste0(
+        "Initial χ² = ", sprintf("%.3f", col_result$initial_chi_square), "; ",
+        "Critical value (p=0.05) = ", sprintf("%.3f", col_result$critical_value), "; ",
+        "Last significant step = ", sig_step, ". ",
+        interpretation
+      )
+      table$setNote('colClusterSummary', summary_text, init = FALSE)
+      
+      # Populate significant groups table using addRow
       groups_table <- self$results$colGroupsTable
+      groups_table$deleteRows()
       col_groups <- private$.extractClusterGroups(col_result)
       
       group_num <- 1
+      
       for (group_name in names(col_groups)) {
         values <- list(
           groupName = paste("Group", group_num),
@@ -583,17 +874,12 @@ chisqclusterClass <- R6::R6Class(
         group_num <- group_num + 1
       }
       
-      # Add explanatory note
-      note_html <- paste0(
-        "<div style='font-size: 0.9em; color: #555; margin: 10px 0;'>",
-        "<p><strong>Interpretation:</strong> These groups represent column categories that are statistically similar ",
-        "in their relationship with the row variable. Categories within the same group have been merged ",
-        "without reducing the chi-squared statistic below the critical threshold (p=0.05). This means they can ",
-        "be treated as equivalent for practical purposes—their row profiles are so similar that ",
-        "distinguishing between them does not contribute meaningfully to the overall association.</p>",
-        "</div>"
+      # Add interpretation as table footnote
+      groups_note <- paste0(
+        "Groups contain column categories with similar row profiles. ",
+        "Categories within a group can be treated as equivalent without materially affecting the association."
       )
-      self$results$colGroupsNote$setContent(note_html)
+      groups_table$setNote('colGroupsInterpretation', groups_note, init = FALSE)
     },
     
     .extractClusterGroups = function(result) {
@@ -648,7 +934,7 @@ chisqclusterClass <- R6::R6Class(
       hc <- list(
         merge = merge_matrix,
         height = height_vector,
-        order = seq_len(n_items),  # Temporary placeholder
+        order = seq_len(n_items),
         labels = labels,
         method = "ward",
         dist.method = "chi-squared"
@@ -659,28 +945,28 @@ chisqclusterClass <- R6::R6Class(
       hc$order <- stats::order.dendrogram(stats::as.dendrogram(hc))
       
       # Calculate cut position in dendrogram space
-      # Position the line BETWEEN the last accepted merge and first rejected merge
       sig_step <- result$significant_step
       
       if (sig_step > 0 && sig_step < length(height_vector)) {
-        # Position halfway between last accepted and first rejected merge
         last_accepted_height <- height_vector[sig_step]
         first_rejected_height <- height_vector[sig_step + 1]
         cut_position <- (last_accepted_height + first_rejected_height) / 2
       } else if (sig_step == 0) {
-        # No merging justified - put line at bottom
         cut_position <- 0
       } else {
-        # All merges justified - put line at top
         cut_position <- result$initial_chi_square
       }
       
       # Calculate the displayed chi-square value at this position
       displayed_chi_square <- result$initial_chi_square - cut_position
       
-      # Determine text alignment to avoid truncation at plot edges
-      # If critical value is small (< 40% of initial chi²), place text LEFT of line
-      text_hjust <- if (result$critical_value < 0.4 * result$initial_chi_square) 1 else 0
+      # Build caption text for the reference line
+      caption_text <- if (result$method_info$method == "inertia") {
+        sprintf("Dashed line: optimal partition (%d clusters, \u03C7\u00B2 = %.1f)", 
+                result$method_info$optimal_clusters, displayed_chi_square)
+      } else {
+        sprintf("Dashed line: clustering threshold (\u03C7\u00B2 = %.1f)", displayed_chi_square)
+      }
       
       # Use ggdendro to extract dendrogram data
       ddata <- ggdendro::dendro_data(hc)
@@ -711,24 +997,16 @@ chisqclusterClass <- R6::R6Class(
         ggplot2::labs(
           title = "Row Clustering Dendrogram",
           x = "",
-          y = "Chi-squared statistic"
+          y = "Chi-squared statistic",
+          caption = caption_text
         ) +
         ggplot2::theme_minimal() +
         ggplot2::theme(
           plot.title = ggplot2::element_text(hjust = 0.5, face = "bold", size = 12),
           axis.text = ggplot2::element_text(size = 10),
           axis.title = ggplot2::element_text(size = 10),
-          panel.grid.minor = ggplot2::element_blank()
-        ) +
-        ggplot2::annotate(
-          "text",
-          x = 0.5,
-          y = cut_position,
-          label = sprintf("Clustering threshold (χ² = %.1f)", displayed_chi_square),
-          hjust = text_hjust,
-          vjust = -0.5,
-          color = "red",
-          size = 3.5
+          panel.grid.minor = ggplot2::element_blank(),
+          plot.caption = ggplot2::element_text(color = "red", hjust = 0.5, size = 9)
         )
       
       print(plot)
@@ -753,7 +1031,7 @@ chisqclusterClass <- R6::R6Class(
       hc <- list(
         merge = merge_matrix,
         height = height_vector,
-        order = seq_len(n_items),  # Temporary placeholder
+        order = seq_len(n_items),
         labels = labels,
         method = "ward",
         dist.method = "chi-squared"
@@ -764,28 +1042,28 @@ chisqclusterClass <- R6::R6Class(
       hc$order <- stats::order.dendrogram(stats::as.dendrogram(hc))
       
       # Calculate cut position in dendrogram space
-      # Position the line BETWEEN the last accepted merge and first rejected merge
       sig_step <- result$significant_step
       
       if (sig_step > 0 && sig_step < length(height_vector)) {
-        # Position halfway between last accepted and first rejected merge
         last_accepted_height <- height_vector[sig_step]
         first_rejected_height <- height_vector[sig_step + 1]
         cut_position <- (last_accepted_height + first_rejected_height) / 2
       } else if (sig_step == 0) {
-        # No merging justified - put line at bottom
         cut_position <- 0
       } else {
-        # All merges justified - put line at top
         cut_position <- result$initial_chi_square
       }
       
       # Calculate the displayed chi-square value at this position
       displayed_chi_square <- result$initial_chi_square - cut_position
       
-      # Determine text alignment to avoid truncation at plot edges
-      # If critical value is small (< 40% of initial chi²), place text LEFT of line
-      text_hjust <- if (result$critical_value < 0.4 * result$initial_chi_square) 1 else 0
+      # Build caption text for the reference line
+      caption_text <- if (result$method_info$method == "inertia") {
+        sprintf("Dashed line: optimal partition (%d clusters, \u03C7\u00B2 = %.1f)", 
+                result$method_info$optimal_clusters, displayed_chi_square)
+      } else {
+        sprintf("Dashed line: clustering threshold (\u03C7\u00B2 = %.1f)", displayed_chi_square)
+      }
       
       # Use ggdendro to extract dendrogram data
       ddata <- ggdendro::dendro_data(hc)
@@ -816,24 +1094,16 @@ chisqclusterClass <- R6::R6Class(
         ggplot2::labs(
           title = "Column Clustering Dendrogram",
           x = "",
-          y = "Chi-squared statistic"
+          y = "Chi-squared statistic",
+          caption = caption_text
         ) +
         ggplot2::theme_minimal() +
         ggplot2::theme(
           plot.title = ggplot2::element_text(hjust = 0.5, face = "bold", size = 12),
           axis.text = ggplot2::element_text(size = 10),
           axis.title = ggplot2::element_text(size = 10),
-          panel.grid.minor = ggplot2::element_blank()
-        ) +
-        ggplot2::annotate(
-          "text",
-          x = 0.5,
-          y = cut_position,
-          label = sprintf("Clustering threshold (χ² = %.1f)", displayed_chi_square),
-          hjust = text_hjust,
-          vjust = -0.5,
-          color = "red",
-          size = 3.5
+          panel.grid.minor = ggplot2::element_blank(),
+          plot.caption = ggplot2::element_text(color = "red", hjust = 0.5, size = 9)
         )
       
       print(plot)
@@ -843,15 +1113,17 @@ chisqclusterClass <- R6::R6Class(
     
     .populateMethodInfo = function() {
       
+      partition_method <- self$options$partitionMethod
+      
       html <- paste0(
         "<div style='font-size: 0.9em; color: #444; line-height: 1.6;'>",
         
         "<h3 style='color: #2874A6; margin-top: 1em;'>Clustering Method Overview</h3>",
         "<p>This hierarchical clustering method identifies homogeneous groups of rows and columns ",
-        "in a contingency table that can be merged without significantly reducing the table's association. ",
+        "in a contingency table that can be merged without substantially reducing the table's association. ",
         "The procedure uses the <strong>chi-squared statistic as a distance measure</strong> between categories, ",
         "applying Ward's linkage criterion to create clusters that preserve as much of the original association ",
-        "as possible (see: Greenacre 2017).</p>",
+        "as possible.</p>",
         
         "<h3 style='color: #2874A6; margin-top: 1.5em;'>Theoretical Foundation</h3>",
         "<p>The method is based on a fundamental principle: when two rows (or columns) have similar profiles ",
@@ -867,7 +1139,7 @@ chisqclusterClass <- R6::R6Class(
         "reduction.</p>",
         
         "<h3 style='color: #2874A6; margin-top: 1.5em;'>Algorithmic Procedure</h3>",
-        "<p>The analysis proceeds through the following stages:</p>",
+        "<p>The clustering procedure is identical regardless of the partition selection method:</p>",
         
         "<ol style='margin-left: 2em;'>",
         "<li><strong>Step 0 (Initial state):</strong> Calculate χ² for the full table. This serves as the ",
@@ -880,72 +1152,113 @@ chisqclusterClass <- R6::R6Class(
         "This is Ward's criterion applied to chi-squared distance.</li>",
         
         "<li><strong>Tracking the hierarchy:</strong> Each merge is recorded with: the items merged, the ",
-        "resulting χ², the absolute reduction, and the percentage reduction relative to the previous step. ",
-        "This creates the 'merging sequence' table, which shows how the association progressively declines ",
-        "as categories are combined.</li>",
+        "resulting χ², the absolute reduction, and the percentage reduction relative to the initial χ². ",
+        "This creates the 'merging sequence' table.</li>",
         
-        "<li><strong>Stopping criterion:</strong> Merging continues until an individual merge would cause ",
-        "a χ² reduction ≥ the critical threshold (Greenacre 2017, Hirotsu 1983). This critical value ",
-        "(from Pearson & Hartley 1972, as tabulated in Greenacre 2017, Exhibit A.1, p.254) controls ",
-        "the family-wise error rate at α = 0.05, accounting for the fact that we are conducting many ",
-        "implicit tests as we consider different ways to partition the table.</li>",
-        
-        "<li><strong>Identifying significant groups:</strong> The 'last significant step' is the final merge ",
-        "at which χ² remains above the critical threshold. The clusters present at this step represent the ",
-        "<strong>significant homogeneous groups</strong>—categories that are sufficiently similar to be ",
-        "treated as equivalent without materially distorting the table's association structure.</li>",
+        "<li><strong>Selecting the partition:</strong> The final step is to determine where to 'cut' the ",
+        "hierarchical tree to obtain the final groupings. Two methods are available for this purpose.</li>",
         "</ol>",
         
+        "<h3 style='color: #2874A6; margin-top: 1.5em;'>Partition Selection Methods</h3>",
+        
+        # Method 1: Greenacre
+        "<h4 style='color: #1a5276; margin-top: 1em;'>Method 1: Critical Chi-Square (Greenacre, 2017)",
+        if (partition_method == "greenacre") " — <em>currently selected</em>" else "",
+        "</h4>",
+        
+        "<p>This method uses a hypothesis-testing framework to determine which merges are statistically ",
+        "justified. At each step, the chi-squared reduction caused by merging is compared against a ",
+        "<strong>critical threshold</strong> derived from the distribution of the largest characteristic ",
+        "root (Pearson & Hartley, 1972, Table 51; reproduced in Greenacre, 2017, Exhibit A.1).</p>",
+        
+        "<p>Merging continues as long as the reduction at each step remains <em>below</em> the critical ",
+        "value. When a proposed merge would cause a reduction that <em>exceeds</em> the threshold, ",
+        "the algorithm stops—this merge would combine categories whose profiles differ significantly ",
+        "at α = 0.05.</p>",
+        
+        "<p><strong>Interpretation:</strong> The resulting groups represent categories that are ",
+        "statistically indistinguishable in their profiles. Merging is justified by hypothesis testing, ",
+        "providing a principled basis for simplifying the table.</p>",
+        
+        "<p><strong>Table size constraints:</strong> Critical values are only available for tables where ",
+        "min(rows, columns) ≤ 11 and max(rows, columns) ≤ 101. For larger tables, use the inertia ",
+        "gain ratio method instead.</p>",
+        
+        # Method 2: Husson
+        "<h4 style='color: #1a5276; margin-top: 1.5em;'>Method 2: Inertia Gain Ratio (Husson et al., 2017)",
+        if (partition_method == "inertia") " — <em>currently selected</em>" else "",
+        "</h4>",
+        
+        "<p>This method uses a data-driven criterion to find the 'natural' number of clusters by ",
+        "identifying the point in the hierarchy where the <strong>relative gain in between-cluster ",
+        "inertia drops most sharply</strong>.</p>",
+        
+        "<p>At each step going from <em>q</em> clusters to <em>q</em>−1 clusters, the algorithm records ",
+        "the inertia gain Δ(<em>q</em>). Since total inertia equals χ²/<em>N</em>, this is equivalent to ",
+        "tracking the chi-squared reduction at each merge. The optimal partition is the one that minimises:</p>",
+        
+        "<p style='text-align: center; font-style: italic;'>Δ(q) / Δ(q+1)</p>",
+        
+        "<p>This ratio captures the 'elbow' in the inertia curve—the point where further merging ",
+        "yields diminishing returns. A small ratio indicates that the current merge causes relatively little ",
+        "loss compared to the next merge, suggesting the current partition captures substantially more ",
+        "structure than the next coarser partition.</p>",
+        
+        "<p><strong>Interpretation:</strong> The resulting groups represent a parsimonious summary of ",
+        "the table's structure, balancing detail against simplicity. Unlike the critical chi-square ",
+        "method, this approach does not make formal significance claims—it identifies structure rather ",
+        "than testing hypotheses.</p>",
+        
+        "<p><strong>Table size:</strong> This method has no table size constraints and can be applied ",
+        "to contingency tables of any dimension.</p>",
+        
+        "<p><strong>Note on implementation:</strong> The criterion described here originates from Husson ",
+        "et al. (2017) and is implemented in FactoMineR's <code>HCPC()</code> function. In FactoMineR, ",
+        "the criterion is typically applied to a hierarchy built from Correspondence Analysis coordinates ",
+        "using Euclidean distance. In this module, we apply the same criterion to a hierarchy built ",
+        "directly from chi-squared distances between row (or column) profiles. Both approaches use the ",
+        "same partition selection logic; they differ only in how the underlying hierarchy is constructed.</p>",
+        
+        # Dendrogram interpretation
         "<h3 style='color: #2874A6; margin-top: 1.5em;'>Interpreting the Dendrogram</h3>",
-        "<p>The dendrogram (cluster tree) visualises the hierarchical structure. The vertical axis represents ",
-        "the chi-squared statistic, plotted in <strong>reverse</strong>: height = initial χ² − current χ². This ",
-        "means that the bottom of the tree (where individual items join) shows high χ² (close to the initial ",
-        "value), whilst the top shows low χ² (as categories are progressively merged).</p>",
+        "<p>The dendrogram (cluster tree) visualises the hierarchical structure. The horizontal axis represents ",
+        "the <strong>remaining χ² statistic</strong> after each merge: high values appear on the left (near the ",
+        "category labels, where little merging has occurred) and low values on the right (where most categories ",
+        "have been combined).</p>",
         
-        "<p><strong>Reading the dendrogram:</strong> The horizontal axis shows the remaining χ² statistic at ",
-        "each stage of merging. The red line's label indicates the χ² value at that position. This helps you ",
-        "verify visually that clusters to the left maintain sufficient association, whilst those to the right ",
-        "do not. The actual critical threshold value (which determines where the line is positioned) is shown ",
-        "in the summary statistics above.</p>",
+        "<p><strong>Reading the dendrogram:</strong> Categories that merge early (toward the left of the plot, ",
+        "at high remaining χ² values) are most similar—their merger causes only a small reduction in χ². ",
+        "Categories that only join later (toward the right, at lower remaining χ² values) are more distinct.</p>",
         
-        "<p>The <strong>red dashed line</strong> marks the clustering threshold—the point at which further ",
-        "merging would cause excessive information loss. The line is positioned in the gap between the last ",
-        "accepted merge and the first rejected merge. Clusters that form to the <em>left</em> of this line ",
-        "(where χ² is high) are statistically significant at p = 0.05 after adjustment for multiple comparisons. ",
-        "Merges occurring to the <em>right</em> of the line (where χ² is low) would destroy significant structure ",
-        "and are not statistically justified.</p>",
+        "<p>The <strong>red dashed line</strong> marks the partition cutoff:</p>",
+        "<ul style='margin-left: 2em;'>",
+        "<li>For the <strong>critical chi-square method</strong>, the line is positioned between the last ",
+        "statistically justified merge and the first unjustified merge. Clusters forming entirely to the ",
+        "left of this line represent statistically significant groupings at α = 0.05.</li>",
+        "<li>For the <strong>inertia gain ratio method</strong>, the line indicates the optimal partition ",
+        "identified by the largest relative drop in inertia gain.</li>",
+        "</ul>",
         
-        "<h3 style='color: #2874A6; margin-top: 1.5em;'>Practical Interpretation</h3>",
-        "<p><strong>Significant groups:</strong> Categories within the same group at the last significant ",
-        "step can be treated as effectively equivalent in their relationship with the other dimension. For ",
-        "example, if rows A, B, and C form a single cluster, this means their column profiles are so similar ",
-        "that distinguishing between them does not contribute meaningfully to the table's overall association.</p>",
+        # Practical considerations
+        "<h3 style='color: #2874A6; margin-top: 1.5em;'>Practical Considerations</h3>",
+        
+        "<p><strong>Comparing the two methods:</strong> The critical chi-square method provides a formal ",
+        "significance test but is limited to smaller tables. The inertia gain ratio method is more flexible ",
+        "and often suggests fewer, larger clusters. When both methods are applicable, comparing their results ",
+        "can provide useful perspective on the table's structure.</p>",
         
         "<p><strong>Reduction percentages:</strong> The percentage reduction at each merge indicates how ",
         "'costly' that merge was in terms of lost association. Small percentages (< 5%) suggest the merged ",
-        "categories were nearly identical; large percentages (> 20%) suggest substantial heterogeneity, ",
-        "implying the categories should probably not be combined.</p>",
+        "categories were nearly identical; large percentages (> 20%) suggest substantial heterogeneity.</p>",
         
-        "<p><strong>Hierarchical structure:</strong> The dendrogram reveals not just which categories are ",
-        "similar, but also the <em>degree</em> of similarity. Categories that merge early (at the bottom of ",
-        "the tree) are most similar; those that only join near the top are quite different. This hierarchical ",
-        "information can guide decisions about whether to use a coarse or fine categorisation.</p>",
-        
-        "<h3 style='color: #2874A6; margin-top: 1.5em;'>Limitations and Considerations</h3>",
-        "<p><strong>Table size constraints:</strong> Critical values are only available for tables with 3–13 ",
-        "rows and 3–11 columns. Smaller tables (< 3×3) have too few degrees of freedom for meaningful ",
-        "clustering; larger tables exceed the published critical value tables.</p>",
-        
-        "<p><strong>Statistical vs. substantive significance:</strong> The clustering procedure is purely ",
-        "data-driven and does not incorporate substantive knowledge about the categories. Just because two ",
-        "categories <em>can</em> be merged without statistical penalty does not necessarily mean they ",
-        "<em>should</em> be merged in practice. Domain expertise should guide the final decision about ",
-        "whether identified groups make conceptual sense.</p>",
+        "<p><strong>Statistical vs. substantive significance:</strong> Both methods are data-driven and do ",
+        "not incorporate domain knowledge. Just because two categories <em>can</em> be merged does not ",
+        "necessarily mean they <em>should</em> be merged in practice. Domain expertise should guide the ",
+        "final decision about whether identified groups make conceptual sense.</p>",
         
         "<p><strong>Asymmetry of rows and columns:</strong> The clusters identified for rows are independent ",
         "of those for columns. It is entirely possible to find, for instance, that rows naturally group into ",
-        "three clusters whilst columns group into two. This asymmetry reflects the potentially different ",
-        "structure of the row and column variables.</p>",
+        "three clusters whilst columns group into two.</p>",
         
         "</div>"
       )
@@ -953,32 +1266,13 @@ chisqclusterClass <- R6::R6Class(
       self$results$methodInfo$setContent(html)
     },
     
-    .populateReferences = function() {
-      
-      references_html <- paste0(
-        "<div style='font-size: 0.85em; color: #444; margin: 15px 0; line-height: 1.5;'>",
-        "<h3 style='color: #2874A6; margin-top: 0.5em; margin-bottom: 0.5em;'>References</h3>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Bendixen, M.T. (1995). Compositional Perceptual Mapping Using Chi-squared Trees Analysis and Correspondence Analysis. ",
-        "<em>Journal of Marketing Management</em>, 11, 571–581.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Greenacre, M. (1988). Clustering the Rows and Columns of a Contingency Table. <em>Journal of Classification</em>, 5, 39–51.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Greenacre, M. (2017). <em>Correspondence Analysis in Practice</em> (3rd ed.). Chapman & Hall/CRC.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Hirotsu, C. (1983). Defining the Pattern of Association in Two-way Contingency Tables. ",
-        "<em>Biometrika</em>, 70(3), 579–589.</p>",
-        "Pearson, E. S., & Hartley, H. O. (1972). <em>Biometrika Tables for Statisticians, Volume 2</em>. Cambridge University Press.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Ward, J. H. (1963). Hierarchical grouping to optimize an objective function. <em>Journal of the American Statistical Association</em>, 58(301), 236–244.</p>",
-        "</div>"
-      )
-      
-      self$results$legendNote$setContent(references_html)
-    },
-    
     # Store clustering results for plotting
     .rowClusterResult = NULL,
-    .colClusterResult = NULL
+    .colClusterResult = NULL,
+    # Table stability fields
+    .rowLevels = NULL,
+    .colLevels = NULL,
+    .I = NULL,
+    .J = NULL
   )
 )

@@ -5,7 +5,7 @@ jrs: '1.1'
 
 items:
     - name: partialTablesGroup
-      title: Partial Tables (Strata)
+      title: ''
       type: Array
       template:
         title: Partial Table
@@ -17,12 +17,8 @@ items:
         - strata
         - counts
 
-    - name: marginalTableHeader
-      title: ''
-      type: Html
-      visible: true
-
     - name: marginalTable
+      title: Marginal Table (collapsed across strata)
       type: Table
       clearWith:
         - rows
@@ -30,11 +26,6 @@ items:
         - strata
         - counts
       columns: []
-
-    - name: analysisResultsHeader
-      title: ''
-      type: Html
-      visible: true
 
     - name: stratumResultsTable
       title: Stratum-Specific Results
@@ -76,6 +67,26 @@ items:
           title: 'Upper'
           superTitle: '95% CI'
           type: number
+      refs:
+       - berry2018
+       - ott1992
+       - reynolds1977
+
+    - name: residualsGroup
+      title: ''
+      type: Array
+      visible: true
+      template:
+        title: Residuals
+        type: Table
+        columns: []
+      clearWith:
+        - rows
+        - cols
+        - strata
+        - counts
+      refs:
+       - haberman1973
 
     - name: cmhTestTable
       title: Generalised Cochran-Mantel-Haenszel Test for Conditional Independence
@@ -99,6 +110,8 @@ items:
           title: 'p'
           type: number
           format: zto,pvalue
+      refs:
+       - azen2021
 
     - name: homogeneityTable
       title: Test for Homogeneity of Association
@@ -122,6 +135,8 @@ items:
           title: 'p'
           type: number
           format: zto,pvalue
+      refs:
+       - azen2021
 
     - name: summaryMeasureTable
       title: Summary Measure
@@ -147,55 +162,26 @@ items:
           title: 'Upper'
           superTitle: '95% CI'
           type: number
+      refs:
+       - berry2018
+       - blalock1979
+       - reynolds1977
 
-    - name: residualsHeader
-      title: ''
-      type: Html
-      visible: (showResiduals)
-
-    - name: residualsGroup
-      title: ''
-      type: Array
-      visible: (showResiduals)
-      template:
-        title: Residuals
-        type: Table
-        columns: []
+    - name: interpretationTable
+      title: Interpretation Summary
+      type: Table
       clearWith:
         - rows
         - cols
         - strata
         - counts
-
-    - name: residualsNote
-      title: ''
-      type: Html
-      visible: (showResiduals)
-
-    - name: interpretationGuideHeader
-      title: ''
-      type: Html
-      visible: (showInterpretation)
-
-    - name: interpretationNote
-      title: Interpretation
-      type: Html
-      visible: (showInterpretation)
-      clearWith:
-        - rows
-        - cols
-        - strata
-        - counts
-
-    - name: diagnosticSummary
-      title: Diagnostic Summary
-      type: Html
-      visible: (showDiagnosticSummary)
-      clearWith:
-        - rows
-        - cols
-        - strata
-        - counts
+      columns:
+        - name: topic
+          title: 'Aspect'
+          type: text
+        - name: result
+          title: 'Result'
+          type: text
 
     - name: forestPlot
       title: Forest Plot of V Corrected

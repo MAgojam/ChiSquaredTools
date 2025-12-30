@@ -1,0 +1,108 @@
+---
+name: chisqpower
+title: Power Analysis for Chi-Squared Test
+jrs: '1.1'
+
+refs:
+    - cohen1988
+    - cohen1992
+
+items:
+    # 1. MAIN RESULTS TABLE
+    - name: resultsTable
+      title: Power Analysis Results
+      type: Table
+      refs:
+        - cohen1988
+      clearWith:
+        - analysisType
+        - nRows
+        - nCols
+        - esType
+        - effectSize
+        - esConventional
+        - alpha
+        - power
+        - n
+      columns:
+        - name: parameter
+          title: 'Parameter'
+          type: text
+        - name: value
+          title: 'Value'
+          type: text
+
+    # 2. SAMPLE SIZE REFERENCE TABLE (for planning)
+    - name: refTable
+      title: Sample Size Reference Table
+      type: Table
+      visible: (showRefTable)
+      refs:
+        - cohen1992
+      clearWith:
+        - nRows
+        - nCols
+        - alpha
+      columns:
+        - name: power
+          title: 'Power'
+          type: text
+        - name: small
+          title: 'w = 0.1'
+          type: integer
+          superTitle: Required N
+        - name: medium
+          title: 'w = 0.3'
+          type: integer
+          superTitle: Required N
+        - name: large
+          title: 'w = 0.5'
+          type: integer
+          superTitle: Required N
+
+    # 3. POWER CURVE PLOT
+    - name: powerCurvePlot
+      title: Power Curve
+      type: Image
+      width: 550
+      height: 400
+      renderFun: .plotPowerCurve
+      visible: (showPowerCurve)
+      requiresData: false
+      clearWith:
+        - analysisType
+        - nRows
+        - nCols
+        - esType
+        - effectSize
+        - esConventional
+        - alpha
+        - power
+        - n
+
+    # 4. EFFECT SIZE SENSITIVITY CURVE
+    - name: esCurvePlot
+      title: Effect Size Sensitivity Curve
+      type: Image
+      width: 550
+      height: 400
+      renderFun: .plotESCurve
+      visible: (showESCurve)
+      requiresData: false
+      clearWith:
+        - analysisType
+        - nRows
+        - nCols
+        - alpha
+        - power
+        - n
+
+    # 5. METHOD INFORMATION
+    - name: methodInfo
+      title: Method Details
+      type: Html
+      visible: (showMethodInfo)
+      clearWith:
+        - analysisType
+        - esType
+...

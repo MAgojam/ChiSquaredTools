@@ -13,6 +13,117 @@ chisqtestClass <- R6::R6Class(
     .mcStats = NULL,
     .observedChiSq = NULL,
     
+    # Table structure cache
+    .rowLevels = NULL,
+    .colLevels = NULL,
+    .I = NULL,
+    .J = NULL,
+    
+    .init = function() {
+      
+      # -----------------------------------------------------------------
+      # 1. Early return if no variables - nothing to pre-build
+      # -----------------------------------------------------------------
+      if (is.null(self$options$rows) || is.null(self$options$cols))
+        return()
+      
+      rowVar <- self$options$rows
+      colVar <- self$options$cols
+      data <- self$data
+      
+      # Ensure variables are factors
+      if (!is.factor(data[[rowVar]]))
+        data[[rowVar]] <- as.factor(data[[rowVar]])
+      if (!is.factor(data[[colVar]]))
+        data[[colVar]] <- as.factor(data[[colVar]])
+      
+      # Get levels for table structure
+      row_levels <- levels(data[[rowVar]])
+      col_levels <- levels(data[[colVar]])
+      I <- length(row_levels)
+      J <- length(col_levels)
+      
+      # Store for use in .run()
+      private$.rowLevels <- row_levels
+      private$.colLevels <- col_levels
+      private$.I <- I
+      private$.J <- J
+      
+      # -----------------------------------------------------------------
+      # 2. Pre-build crosstabTable with full structure
+      # -----------------------------------------------------------------
+      crosstab <- self$results$crosstabTable
+      crosstab$setTitle(paste0("Observed Frequencies: ", rowVar, " × ", colVar))
+      
+      crosstab$addColumn(name = 'rowname', title = rowVar, type = 'text')
+      for (j in seq_len(J)) {
+        crosstab$addColumn(
+          name = paste0('col', j),
+          title = col_levels[j],
+          type = 'integer',
+          superTitle = colVar
+        )
+      }
+      crosstab$addColumn(name = 'rowtotal', title = 'Total', type = 'integer')
+      
+      # Pre-add rows with placeholders
+      for (i in seq_len(I)) {
+        crosstab$addRow(rowKey = i, values = list(rowname = row_levels[i]))
+      }
+      crosstab$addRow(rowKey = 'total', values = list(rowname = 'Total'))
+      
+      # -----------------------------------------------------------------
+      # 3. Pre-build expectedTable with full structure
+      # -----------------------------------------------------------------
+      expected <- self$results$expectedTable
+      expected$setTitle(paste0("Expected Frequencies: ", rowVar, " × ", colVar))
+      
+      expected$addColumn(name = 'rowname', title = rowVar, type = 'text')
+      for (j in seq_len(J)) {
+        expected$addColumn(
+          name = paste0('col', j),
+          title = col_levels[j],
+          type = 'number',
+          superTitle = colVar
+        )
+      }
+      
+      # Pre-add rows with placeholders
+      for (i in seq_len(I)) {
+        expected$addRow(rowKey = i, values = list(rowname = row_levels[i]))
+      }
+      
+      # -----------------------------------------------------------------
+      # 4. Pre-build tableCharacteristics (already uses setRow pattern)
+      # -----------------------------------------------------------------
+      charTable <- self$results$tableCharacteristics
+      charTable$addRow(rowKey = "size", values = list(characteristic = "Table size", value = "."))
+      charTable$addRow(rowKey = "total", values = list(characteristic = "Grand total (N)", value = "."))
+      charTable$addRow(rowKey = "cells", values = list(characteristic = "Number of cells", value = "."))
+      charTable$addRow(rowKey = "minexp", values = list(characteristic = "Minimum expected frequency", value = "."))
+      charTable$addRow(rowKey = "avgexp", values = list(characteristic = "Average expected frequency", value = "."))
+      
+      # -----------------------------------------------------------------
+      # 5. Pre-build testResults rows based on selected options
+      # -----------------------------------------------------------------
+      testTable <- self$results$testResults
+      
+      if (self$options$traditionalTest)
+        testTable$addRow(rowKey = 'traditional', values = list(method = 'Traditional χ²'))
+      if (self$options$n1Test)
+        testTable$addRow(rowKey = 'n1adjusted', values = list(method = '(N-1)/N adjusted χ²'))
+      if (self$options$permTest)
+        testTable$addRow(rowKey = 'permutation', values = list(
+          method = paste0('Permutation (', self$options$nPerms, ' permutations)')
+        ))
+      if (self$options$monteCarloTest)
+        testTable$addRow(rowKey = 'montecarlo', values = list(
+          method = paste0('Monte Carlo (', self$options$nPerms, ' simulations)')
+        ))
+      if (self$options$mTest)
+        testTable$addRow(rowKey = 'mtest', values = list(method = 'M Test'))
+    },
+    
     .run = function() {
       
       # Check if variables are selected
@@ -52,110 +163,21 @@ chisqtestClass <- R6::R6Class(
       expected <- outer(row_totals, col_totals) / n
       dimnames(expected) <- dimnames(contingency_table)
       
-      # Populate crosstab and expected tables first (refinement point 1)
+      # Populate crosstab and expected tables
       private$.populateCrosstab(contingency_table)
       private$.populateExpectedTable(expected)
       
-      # Populate method guidance after tables (refinement point 2)
-      if (self$options$showMethodGuidance) {
-        guidance <- private$.generateMethodGuidance(contingency_table, expected)
-        self$results$methodGuidance$setContent(guidance)
-      }
+      # Populate table characteristics (replaces methodGuidance HTML)
+      private$.populateTableCharacteristics(contingency_table, expected)
       
-      # Always call .runTests() - it handles caching internally
+      # Run tests and add dynamic recommendation as footnote
       private$.runTests(contingency_table, expected, data, rowVar, colVar)
       
       # Populate method info
       private$.populateMethodInfo()
       
       # Populate references
-      private$.populateReferences()
-    },
-    
-    .generateMethodGuidance = function(cross_tab, expected) {
-      
-      grand_total <- sum(cross_tab)
-      num_cells <- nrow(cross_tab) * ncol(cross_tab)
-      min_expected <- min(expected)
-      
-      # Check if the cross-tab is 2x2 or larger
-      cross_tab_size <- ifelse(nrow(cross_tab) == 2 && ncol(cross_tab) == 2, "2x2", "larger")
-      
-      # Decision logic with explanations
-      explanation <- "<div style='font-family: sans-serif; margin-bottom: 0px;'>"
-      explanation <- paste0(explanation, "<h3>Method Selection Guidance</h3>")
-      explanation <- paste0(explanation, "<p><strong>Table characteristics:</strong></p>")
-      explanation <- paste0(explanation, "<ul>")
-      explanation <- paste0(explanation, "<li>Table size: ", cross_tab_size, " (", 
-                            nrow(cross_tab), " × ", ncol(cross_tab), ")</li>")
-      explanation <- paste0(explanation, "<li>Grand total: ", grand_total, "</li>")
-      explanation <- paste0(explanation, "<li>Number of cells: ", num_cells, "</li>")
-      explanation <- paste0(explanation, "<li>Minimum expected frequency: ", 
-                            sprintf("%.3f", min_expected), "</li>")
-      explanation <- paste0(explanation, "<li>Average expected frequency: ", 
-                            sprintf("%.3f", grand_total/num_cells), "</li>")
-      explanation <- paste0(explanation, "</ul>")
-      
-      explanation <- paste0(explanation, "<p><strong>Recommendation:</strong></p><p>")
-      
-      if (cross_tab_size == "2x2") {
-        explanation <- paste0(explanation, "Since the table is 2×2, ")
-        if (grand_total >= 5 * num_cells) {
-          explanation <- paste0(explanation, "and the grand total (", grand_total,
-                                ") is ≥ 5 times the number of cells (", 5 * num_cells, 
-                                "), use the <strong>traditional chi-squared test</strong>. ",
-                                "Permutation or Monte Carlo methods can also be considered for robustness.")
-        } else {
-          if (min_expected >= 1) {
-            explanation <- paste0(explanation, "the grand total (", grand_total,
-                                  ") is < 5 times the number of cells (", 5 * num_cells, 
-                                  "), and the minimum expected count (", sprintf("%.3f", min_expected), 
-                                  ") is ≥ 1, use the <strong>(N-1)/N adjusted chi-squared test</strong>. ",
-                                  "Permutation or Monte Carlo methods can also be considered.")
-          } else {
-            explanation <- paste0(explanation, "the grand total (", grand_total,
-                                  ") is < 5 times the number of cells (", 5 * num_cells, 
-                                  "), and the minimum expected count (", sprintf("%.3f", min_expected), 
-                                  ") is < 1, use the <strong>Permutation or Monte Carlo method</strong>.")
-          }
-        }
-      } else { # Larger than 2x2
-        explanation <- paste0(explanation, "Since the table is larger than 2×2, ")
-        if (grand_total >= 5 * num_cells) {
-          explanation <- paste0(explanation, "and the grand total (", grand_total,
-                                ") is ≥ 5 times the number of cells (", 5 * num_cells, 
-                                "), use the <strong>traditional chi-squared test</strong>. ",
-                                "Permutation or Monte Carlo methods can also be considered for robustness.")
-        } else {
-          if (min_expected >= 1) {
-            explanation <- paste0(explanation, "the grand total (", grand_total,
-                                  ") is < 5 times the number of cells (", 5 * num_cells, 
-                                  "), and the minimum expected count (", sprintf("%.3f", min_expected), 
-                                  ") is ≥ 1, use the <strong>(N-1)/N adjusted chi-squared test</strong>. ",
-                                  "Permutation or Monte Carlo methods can also be considered.")
-          } else {
-            explanation <- paste0(explanation, "the grand total (", grand_total,
-                                  ") is < 5 times the number of cells (", 5 * num_cells, 
-                                  "), and the minimum expected count (", sprintf("%.3f", min_expected), 
-                                  ") is < 1, use the <strong>Permutation or Monte Carlo method</strong>.")
-          }
-        }
-      }
-      
-      explanation <- paste0(explanation, "</p>")
-      
-      explanation <- paste0(explanation, "<p style='font-size: 90%; color: #666; margin-bottom: 0px;'>",
-                            "<em>Note: The threshold of 5 times the number of cells ensures an average ",
-                            "expected frequency of at least 5, which maintains the chi-squared test's ",
-                            "reliability at α = 0.05. See: Roscoe & Byars 1971; Greenwood & Nikulin 1996; Zar 2014; Alberti 2024.</em></p>")
-      
-      explanation <- paste0(explanation, "<p style='font-size: 90%; color: #666; margin-top: 10px; margin-bottom: 0px;'>",
-                            "<em>Additionally, the M test (Fuchs & Kenett, 1980) can be used alongside any of the above tests. ",
-                            "It may have higher power when association is driven by one or a few outlying cells.</em></p>")
-      
-      explanation <- paste0(explanation, "</div>")
-      
-      return(explanation)
+      #private$.populateReferences()
     },
     
     .populateCrosstab = function(contingency_table) {
@@ -164,51 +186,24 @@ chisqtestClass <- R6::R6Class(
       
       I <- nrow(contingency_table)
       J <- ncol(contingency_table)
-      row_names <- rownames(contingency_table)
-      col_names <- colnames(contingency_table)
       
-      rowVar <- self$options$rows
-      colVar <- self$options$cols
-      
-      table$setTitle(paste0("Observed Frequencies: ", rowVar, " × ", colVar))
-      
-      table$addColumn(
-        name = 'rowname',
-        title = rowVar,
-        type = 'text',
-        combineBelow = FALSE
-      )
-      
-      for (j in 1:J) {
-        table$addColumn(
-          name = paste0("col", j),
-          title = col_names[j],
-          type = 'integer',
-          superTitle = colVar
-        )
-      }
-      
-      table$addColumn(
-        name = 'rowtotal',
-        title = 'Total',
-        type = 'integer'
-      )
-      
+      # Use setRow() to update pre-built rows
       for (i in 1:I) {
-        row_values <- list(rowname = row_names[i])
+        row_values <- list()
         for (j in 1:J) {
           row_values[[paste0("col", j)]] <- contingency_table[i, j]
         }
         row_values[['rowtotal']] <- sum(contingency_table[i, ])
-        table$addRow(rowKey = i, values = row_values)
+        table$setRow(rowKey = i, values = row_values)
       }
       
-      total_values <- list(rowname = 'Total')
+      # Update total row
+      total_values <- list()
       for (j in 1:J) {
         total_values[[paste0("col", j)]] <- sum(contingency_table[, j])
       }
       total_values[['rowtotal']] <- sum(contingency_table)
-      table$addRow(rowKey = 'total', values = total_values)
+      table$setRow(rowKey = 'total', values = total_values)
     },
     
     .populateExpectedTable = function(expected) {
@@ -217,37 +212,63 @@ chisqtestClass <- R6::R6Class(
       
       I <- nrow(expected)
       J <- ncol(expected)
-      row_names <- rownames(expected)
-      col_names <- colnames(expected)
       
-      rowVar <- self$options$rows
-      colVar <- self$options$cols
-      
-      table$setTitle(paste0("Expected Frequencies: ", rowVar, " × ", colVar))
-      
-      table$addColumn(
-        name = 'rowname',
-        title = rowVar,
-        type = 'text',
-        combineBelow = FALSE
-      )
-      
-      for (j in 1:J) {
-        table$addColumn(
-          name = paste0("col", j),
-          title = col_names[j],
-          type = 'number',
-          superTitle = colVar
-        )
-      }
-      
+      # Use setRow() to update pre-built rows
       for (i in 1:I) {
-        row_values <- list(rowname = row_names[i])
+        row_values <- list()
         for (j in 1:J) {
           row_values[[paste0("col", j)]] <- expected[i, j]
         }
-        table$addRow(rowKey = i, values = row_values)
+        table$setRow(rowKey = i, values = row_values)
       }
+    },
+    
+    .populateTableCharacteristics = function(contingency_table, expected) {
+      
+      table <- self$results$tableCharacteristics
+      
+      I <- nrow(contingency_table)
+      J <- ncol(contingency_table)
+      grand_total <- sum(contingency_table)
+      num_cells <- I * J
+      min_expected <- min(expected)
+      avg_expected <- grand_total / num_cells
+      
+      # Determine table size description
+      table_size <- if (I == 2 && J == 2) "2×2" else paste0(I, "×", J)
+      
+      # Update rows (rows already created in .init())
+      table$setRow(rowKey = "size", values = list(
+        characteristic = "Table size",
+        value = table_size
+      ))
+      table$setRow(rowKey = "total", values = list(
+        characteristic = "Grand total (N)",
+        value = as.character(grand_total)
+      ))
+      table$setRow(rowKey = "cells", values = list(
+        characteristic = "Number of cells",
+        value = as.character(num_cells)
+      ))
+      table$setRow(rowKey = "minexp", values = list(
+        characteristic = "Minimum expected frequency",
+        value = sprintf("%.3f", min_expected)
+      ))
+      table$setRow(rowKey = "avgexp", values = list(
+        characteristic = "Average expected frequency",
+        value = sprintf("%.3f", avg_expected)
+      ))
+      
+      # Add the 5-times rule footnote
+      table$setNote(
+        key = "rule",
+        note = paste0(
+          "The '5-times rule': if N ≥ 5 × number of cells, the traditional χ² test is reliable at α = 0.05. ",
+          "Here: ", grand_total, " vs. ", 5 * num_cells, " (threshold). ",
+          "See: Roscoe & Byars 1971; Greenwood & Nikulin 1996; Zar 2014; Alberti 2024."
+        ),
+        init = FALSE
+      )
     },
     
     .runTests = function(observed, expected, data, rowVar, colVar) {
@@ -269,17 +290,10 @@ chisqtestClass <- R6::R6Class(
         private$.mcStats <- mcImage$state$mc_stats
       }
       
-      # If table already has rows, skip repopulation entirely
-      if (table$rowCount > 0) {
-        return()
-      }
-      
-      # --- Table is empty: populate it ---
-      
       # Traditional chi-squared test
       if (self$options$traditionalTest) {
         p_value <- pchisq(chisq_stat, df, lower.tail = FALSE)
-        table$addRow(rowKey = 'traditional', values = list(
+        table$setRow(rowKey = 'traditional', values = list(
           method = 'Traditional χ²',
           statistic = chisq_stat,
           df = df,
@@ -292,7 +306,7 @@ chisqtestClass <- R6::R6Class(
       if (self$options$n1Test) {
         chisq_adj <- chisq_stat * (n - 1) / n
         p_adj <- pchisq(chisq_adj, df, lower.tail = FALSE)
-        table$addRow(rowKey = 'n1adjusted', values = list(
+        table$setRow(rowKey = 'n1adjusted', values = list(
           method = '(N-1)/N adjusted χ²',
           statistic = chisq_adj,
           df = df,
@@ -338,7 +352,7 @@ chisqtestClass <- R6::R6Class(
           permImage$setState(list(perm_stats = perm_stats, p_perm = p_perm))
         }
         
-        table$addRow(rowKey = 'permutation', values = list(
+        table$setRow(rowKey = 'permutation', values = list(
           method = paste0('Permutation (', self$options$nPerms, ' permutations)'),
           statistic = chisq_stat,
           df = df,
@@ -394,7 +408,7 @@ chisqtestClass <- R6::R6Class(
           mcImage$setState(list(mc_stats = mc_stats, p_mc = p_mc))
         }
         
-        table$addRow(rowKey = 'montecarlo', values = list(
+        table$setRow(rowKey = 'montecarlo', values = list(
           method = paste0('Monte Carlo (', self$options$nPerms, ' simulations)'),
           statistic = chisq_stat,
           df = df,
@@ -441,7 +455,7 @@ chisqtestClass <- R6::R6Class(
         # p = k * 2 * [1 - Phi(M)], capped at 1
         p_m <- min(1, k * 2 * (1 - pnorm(M_stat)))
         
-        table$addRow(rowKey = 'mtest', values = list(
+        table$setRow(rowKey = 'mtest', values = list(
           method = 'M Test',
           statistic = '',
           df = '',
@@ -449,6 +463,42 @@ chisqtestClass <- R6::R6Class(
           pvalue = p_m
         ))
       }
+      
+      # --- Add dynamic recommendation as footnote ---
+      n <- sum(observed)
+      num_cells <- nrow(observed) * ncol(observed)
+      min_expected <- min(expected)
+      is_2x2 <- nrow(observed) == 2 && ncol(observed) == 2
+      threshold <- 5 * num_cells
+      
+      # Build recommendation text
+      if (n >= threshold) {
+        rec_text <- paste0(
+          "Recommendation: N (", n, ") ≥ 5 × cells (", threshold, 
+          "); traditional χ² test is appropriate. Permutation/Monte Carlo methods also valid."
+        )
+      } else if (min_expected >= 1) {
+        rec_text <- paste0(
+          "Recommendation: N (", n, ") < 5 × cells (", threshold, 
+          ") but min. expected (", sprintf("%.2f", min_expected), 
+          ") ≥ 1; (N-1)/N adjusted χ² test is recommended. Permutation/Monte Carlo methods also valid."
+        )
+      } else {
+        rec_text <- paste0(
+          "Recommendation: N (", n, ") < 5 × cells (", threshold, 
+          ") and min. expected (", sprintf("%.2f", min_expected), 
+          ") < 1; Permutation or Monte Carlo methods are recommended."
+        )
+      }
+      
+      table$setNote(key = "recommendation", note = rec_text, init = FALSE)
+      
+      # Add M test note if M test is selected
+      table$setNote(
+        key = "mtest_note",
+        note = "M test (Fuchs & Kenett 1980) may have higher power when association is driven by one or a few outlying cells.",
+        init = FALSE
+      )
     },
     
     .plotPermDist = function(image, ...) {
@@ -736,76 +786,35 @@ chisqtestClass <- R6::R6Class(
         html <- paste0(html, "<p style='font-size: 0.85em; color: #666; margin-top: 8px; margin-bottom: 12px;'><em>See: Beh & Lombardo 2014: 62-64; ",
                        "Howell 2011; Utts 2014; Lin et al. 2015; Phipson & Smyth 2010.</em></p>")
       }
-        if (self$options$mTest) {
-          html <- paste0(html, "<h4 style='color: #3E6DA6;'>M Test</h4>")
-          html <- paste0(html, "<p style='margin-bottom: 12px;'><strong>Rationale:</strong> The M test is an alternative ",
-                         "test of independence based on the maximum absolute adjusted standardised residual (Haberman 1973) rather than the sum of ",
-                         "squared residuals used by the chi-squared test. The test statistic is:</p>")
-          html <- paste0(html, "<p style='text-align: center; margin-bottom: 12px;'>M = max|Z<sub>ij</sub>|</p>")
-          html <- paste0(html, "<p style='margin-bottom: 12px;'>where Z<sub>ij</sub> is the adjusted residual for cell (i, j). ",
-                         "The null hypothesis of independence is rejected when M exceeds a critical value determined by ",
-                         "the Bonferroni correction for multiple comparisons. The p-value is computed as:</p>")
-          html <- paste0(html, "<p style='text-align: center; margin-bottom: 12px;'>p = min(1, k × 2 × [1 - Φ(M)])</p>")
-          html <- paste0(html, "<p style='margin-bottom: 12px;'>where k is the total number of cells (I × J) and Φ is the ",
-                         "standard normal cumulative distribution function. This p-value is conservative (i.e., it may be ",
-                         "slightly larger than the true p-value).</p>")
-          html <- paste0(html, "<p style='margin-bottom: 12px;'><strong>When to use:</strong> The M test can be used alongside ",
-                         "the traditional chi-squared test. It may have higher power when association is driven by a single ",
-                         "outlying cell or a small number of cells with unequal deviations. The test is asymptotically more ",
-                         "powerful than the chi-squared test in these situations. When the null hypothesis is rejected, the ",
-                         "cell(s) with |Z<sub>ij</sub>| > M* can be identified as outlying cells (see the adjusted standardised residuals provided by the Post-Hoc ",
-                         "Analysis facility).</p>")
-          html <- paste0(html, "<p style='font-size: 0.85em; color: #666; margin-top: 8px; margin-bottom: 12px;'><em>See: ",
-                         "Haberman 1973; Fuchs & Kenett 1980.</em></p>")
-        }
+      if (self$options$mTest) {
+        html <- paste0(html, "<h4 style='color: #3E6DA6;'>M Test</h4>")
+        html <- paste0(html, "<p style='margin-bottom: 12px;'><strong>Rationale:</strong> The M test is an alternative ",
+                       "test of independence based on the maximum absolute adjusted standardised residual (Haberman 1973) rather than the sum of ",
+                       "squared residuals used by the chi-squared test. The test statistic is:</p>")
+        html <- paste0(html, "<p style='text-align: center; margin-bottom: 12px;'>M = max|Z<sub>ij</sub>|</p>")
+        html <- paste0(html, "<p style='margin-bottom: 12px;'>where Z<sub>ij</sub> is the adjusted residual for cell (i, j). ",
+                       "The null hypothesis of independence is rejected when M exceeds a critical value determined by ",
+                       "the Bonferroni correction for multiple comparisons. The p-value is computed as:</p>")
+        html <- paste0(html, "<p style='text-align: center; margin-bottom: 12px;'>p = min(1, k × 2 × [1 - Φ(M)])</p>")
+        html <- paste0(html, "<p style='margin-bottom: 12px;'>where k is the total number of cells (I × J) and Φ is the ",
+                       "standard normal cumulative distribution function. This p-value is conservative (i.e., it may be ",
+                       "slightly larger than the true p-value).</p>")
+        html <- paste0(html, "<p style='margin-bottom: 12px;'><strong>When to use:</strong> The M test can be used alongside ",
+                       "the traditional chi-squared test. It may have higher power when association is driven by a single ",
+                       "outlying cell or a small number of cells with unequal deviations. The test is asymptotically more ",
+                       "powerful than the chi-squared test in these situations. When the null hypothesis is rejected, the ",
+                       "cell(s) with |Z<sub>ij</sub>| > M* can be identified as outlying cells (see the adjusted standardised residuals provided by the Post-Hoc ",
+                       "Analysis facility).</p>")
+        html <- paste0(html, "<p style='font-size: 0.85em; color: #666; margin-top: 8px; margin-bottom: 12px;'><em>See: ",
+                       "Haberman 1973; Fuchs & Kenett 1980.</em></p>")
+      }
       
       html <- paste0(html, "</div>")
       
       self$results$methodInfo$setContent(html)
-    },
-    
-    .populateReferences = function() {
-      
-      references_html <- paste0(
-        "<div style='font-size: 0.85em; color: #444; margin: 15px 0; line-height: 1.5;'>",
-        "<h3 style='color: #2874A6; margin-top: 0.5em; margin-bottom: 0.5em;'>References</h3>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Agresti, A., Franklin, C., & Klingenberg, B. (2022). <em>Statistics: The Art and Science of Learning from Data</em> (5th ed.). Pearson Education.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Alberti, G. (2024). <em>From Data to Insights. A Beginner's Guide to Cross-Tabulation Analysis</em>. Chapman & Hall.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Beh, E. J., & Lombardo, R. (2014). <em>Correspondence Analysis: Theory, Practice and New Strategies</em>. Wiley.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Campbell, I. (2007). Chi-squared and Fisher–Irwin tests of two-by-two tables with small sample recommendations. <em>Statistics in Medicine</em>, 26(19), 3661-3675.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Fuchs, C., & Kenett, R. (1980). A test for detecting outlying cells in the multinomial distribution and two-way contingency tables. <em>Journal of the American Statistical Association</em>, 75(370), 395-398.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Greenwood, P. E., & Nikulin, M. S. (1996). <em>A Guide to Chi-Squared Testing</em>. Wiley.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Haberman, S. J. (1973). The analysis of residuals in cross-classified tables. <em>Biometrics</em>, 29(1), 205-220.</p>",
-        "Howell, D. C. (2011). <em>Statistical Methods for Psychology</em> (8th ed.). Wadsworth Publishing.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Lin, J.-J., Chang, C.-H., & Pal, N. (2015). A revisit to contingency table and tests of independence: Bootstrap is preferred to chi-square approximations as well as Fisher's exact test. <em>Journal of Biopharmaceutical Statistics</em>, 25(3), 438-458.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Phipson, B., & Smyth, G. K. (2010). Permutation p-values should never be zero: calculating exact p-values when permutations are randomly drawn. <em>Statistical Applications in Genetics and Molecular Biology</em>, 9(1), Article 39.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Rhoades, H. M., & Overall, J. E. (1982). A sample size correction for Pearson chi-squared in 2 × 2 contingency tables. <em>Psychological Bulletin</em>, 91(2), 418-423.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Richardson, J. T. E. (2011). The analysis of 2 × 2 contingency tables—yet again. <em>Statistics in Medicine</em>, 30(8), 890.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Roscoe, J. T., & Byars, J. A. (1971). An investigation of the restraints with respect to sample size commonly imposed on the use of the chi-squared statistic. <em>Journal of the American Statistical Association</em>, 66(336), 755-759.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Upton, G. J. G. (1982). A comparison of alternative tests for the 2 × 2 comparative trial. <em>Journal of the Royal Statistical Society, Series A</em>, 145(1), 86-105.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Utts, J. M. (2014). <em>Seeing Through Statistics</em> (4th ed.). Brooks/Cole.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Zar, J. H. (2014). <em>Biostatistical Analysis</em> (5th ed.). Pearson Education Limited.</p>",
-        "</div>"
-      )
-      
-      self$results$legendNote$setContent(references_html)
-    }
+    }#,
+    #.populateReferences = function() {
+    # Placeholder - do nothing
+    #}
   )
 )

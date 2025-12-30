@@ -11,48 +11,7 @@ items:
       clearWith:
         - rows
         - cols
-      columns: []
-
-    # 1b. OR INTERPRETATION NOTE (beneath observed table, 2x2 only)
-    - name: orInterpretation
-      title: ''
-      type: Html
-      visible: (oddsRatio)
-      clearWith:
-        - rows
-        - cols
-        - rowRef
-        - colRef
-
-    # 2. CHI-SQUARE-MAXIMISING TABLE (third, after standardised)
-    - name: chisqMaxTable
-      title: Chi-Square-Maximising Table
-      type: Table
-      visible: (showChisqMax)
-      clearWith:
-        - rows
-        - cols
-      columns: []
-    
-    # 3. STANDARDISED TABLE (second, after observed)
-    - name: standardisedTable
-      title: Standardised Contingency Table
-      type: Table
-      visible: (showStandardised)
-      clearWith:
-        - rows
-        - cols
-      columns: []
-
-    # 4. ASSOCIATION MEASURES SUMMARY
-    - name: resultsTable
-      title: Association Measures Summary
-      type: Table
-      clearWith:
-        - rows
-        - cols
-        - confLevel
-        - bootstrapReps
+        - counts
         - phi
         - phiSigned
         - phiCorrected
@@ -70,14 +29,62 @@ items:
         - wHatCorrected
         - sakoda
         - sakodaCorrected
-        - yulesQ
-        - yulesY
-        - oddsRatio
-        - rowRef
-        - colRef
+        - sakodaLocal
+        - marginFree
         - gkLambda
         - gkLambdaCorrected
         - gkTau
+        - rowRef
+        - colRef
+      columns: []
+
+    # 2. CHI-SQUARE-MAXIMISING TABLE
+    - name: chisqMaxTable
+      title: Chi-Square-Maximising Table
+      type: Table
+      visible: (showChisqMax)
+      clearWith:
+        - rows
+        - cols
+        - counts
+      columns: []
+      refs:
+        - berry2018
+    
+    # 3. STANDARDISED TABLE
+    - name: standardisedTable
+      title: Standardised Contingency Table
+      type: Table
+      visible: (showStandardised)
+      clearWith:
+        - rows
+        - cols
+        - counts
+      columns: []
+      refs:
+        - fienberg1971
+        - smith1976
+        - reynolds1977
+
+    # 4. ASSOCIATION MEASURES SUMMARY
+    - name: resultsTable
+      title: Association Measures Summary
+      type: Table
+      refs:
+        - agresti2013
+        - alberti2024
+        - bishop2007
+        - goodman1979
+        - reynolds1977
+      clearWith:
+        - rows
+        - cols
+        - counts
+        - confLevel
+        - bootstrapReps
+        - seed
+        - rowRef
+        - colRef
       columns:
         - name: measure
           title: 'Measure'
@@ -107,34 +114,27 @@ items:
       clearWith:
         - rows
         - cols
+        - counts
       columns: []
-
-    - name: sakodaLocalNote
-      title: ''
-      type: Html
-      visible: (sakodaLocal)
     
-    # 5. PAIRWISE COMPARISONS (for tables > 2x2 only)
-    - name: pairwiseTable
-      title: Pairwise Comparisons
+    # 5a. PAIRWISE ODDS RATIOS (for tables > 2x2 only)
+    - name: pairwiseORTable
+      title: Pairwise Odds Ratios
       type: Table
-      visible: false
+      visible: (marginFree)
+      rows: 0 
       clearWith:
         - rows
         - cols
+        - counts
         - confLevel
-        - yulesQ
-        - yulesY
-        - oddsRatio
+        - marginFree
       columns:
         - name: comparison
           title: 'Comparison'
           type: text
-        - name: measure
-          title: 'Measure'
-          type: text
         - name: value
-          title: 'Value'
+          title: 'OR'
           type: number
         - name: lowerCI
           title: 'Lower CI'
@@ -150,23 +150,86 @@ items:
           title: 'Effect Size'
           type: text
 
-     # 6. UNILATERAL ASSOCIATION WARNING
-    - name: unilateralWarning
-      title: ''
-      type: Html
-      visible: false
+    # 5b. PAIRWISE YULE'S Q (for tables > 2x2 only)
+    - name: pairwiseQTable
+      title: Pairwise Yule's Q
+      type: Table
+      visible: (marginFree)
+      rows: 0 
       clearWith:
         - rows
         - cols
+        - counts
+        - confLevel
+        - marginFree
+      columns:
+        - name: comparison
+          title: 'Comparison'
+          type: text
+        - name: value
+          title: 'Q'
+          type: number
+        - name: lowerCI
+          title: 'Lower CI'
+          type: number
+        - name: upperCI
+          title: 'Upper CI'
+          type: number
+        - name: pvalue
+          title: 'p'
+          type: number
+          format: zto,pvalue
+        - name: effectSize
+          title: 'Effect Size'
+          type: text
+
+    # 5c. PAIRWISE YULE'S Y (for tables > 2x2 only)
+    - name: pairwiseYTable
+      title: Pairwise Yule's Y
+      type: Table
+      visible: (marginFree)
+      rows: 0 
+      clearWith:
+        - rows
+        - cols
+        - counts
+        - confLevel
+        - marginFree
+      columns:
+        - name: comparison
+          title: 'Comparison'
+          type: text
+        - name: value
+          title: 'Y'
+          type: number
+        - name: lowerCI
+          title: 'Lower CI'
+          type: number
+        - name: upperCI
+          title: 'Upper CI'
+          type: number
+        - name: pvalue
+          title: 'p'
+          type: number
+          format: zto,pvalue
+        - name: effectSize
+          title: 'Effect Size'
+          type: text
     
-    # 7. EFFECT SIZE THRESHOLDS
+    # 6. EFFECT SIZE THRESHOLDS
     - name: thresholdsTable
       title: Effect Size Interpretation Thresholds
       type: Table
       visible: (showThresholds)
+      refs:
+        - alberti2024
+        - cohen1988
+        - olivier2013
+        - reynolds1977
       clearWith:
         - rows
         - cols
+        - counts
         - phi
         - phiSigned
         - phiCorrected
@@ -232,9 +295,4 @@ items:
         - gkLambda
         - gkLambdaCorrected
         - gkTau
-
-    # 8. REFERENCES
-    - name: legendNote
-      title: References
-      type: Html
 ...

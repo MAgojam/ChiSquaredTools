@@ -142,15 +142,6 @@ options:
           R: >
             random seed for reproducibility (default: 123)
 
-    - name: showMethodGuidance
-      title: Show method selection guidance
-      type: Bool
-      default: true
-      description:
-          R: >
-            TRUE or FALSE (default: TRUE), display guidance for selecting
-            an appropriate testing method based on table characteristics
-
     - name: showDistributions
       title: Show distribution plots
       type: Bool

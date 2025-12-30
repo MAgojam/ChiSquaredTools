@@ -43,7 +43,7 @@ description:
                 plotColDendro = TRUE
             )
 
-completeWhenFilled: true
+completeWhenFilled: false
 
 options:
     - name: data
@@ -113,4 +113,21 @@ options:
           R: >
             TRUE or FALSE (default), display detailed methodological 
             explanations for the clustering procedure
+
+    - name: partitionMethod
+      title: Partition selection method
+      type: List
+      options:
+        - name: greenacre
+          title: Critical chi-square (Greenacre, 2017)
+        - name: inertia
+          title: Inertia gain ratio (Husson et al., 2017)
+      default: greenacre
+      description:
+          R: >
+            Method for selecting the optimal partition. 'greenacre' uses 
+            critical chi-square values from Pearson & Hartley (1972) to 
+            identify statistically significant groupings. 'inertia' uses 
+            the relative drop in between-cluster inertia gain to find 
+            the "elbow" in the clustering hierarchy (Husson et al., 2017).
 ...

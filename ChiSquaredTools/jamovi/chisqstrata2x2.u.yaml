@@ -58,21 +58,6 @@ children:
                 name: colRef
                 label: Col. category of interest
                 enable: (cols)
-          - type: LayoutBox
-            margin: normal
-            children:
-              - type: CheckBox
-                name: showORAnnotation
-  
-  # --- GROUP: Display Options ---
-  - type: LayoutBox
-    margin: large
-    children:
-      - type: Label
-        label: Display Options
-        children:
-          - type: CheckBox
-            name: showPartialChiSq
   
   # --- GROUP: Visual Summaries ---
   - type: LayoutBox
@@ -90,16 +75,12 @@ children:
             enable: (strataOrdered)
             style: list-inline
   
-  # --- GROUP: Interpretive Guides ---
+  # --- GROUP: Method Information ---
   - type: LayoutBox
     margin: large
     children:
       - type: Label
-        label: Interpretive Guides
+        label: Method Information
         children:
-          - type: CheckBox
-            name: showInterpretation
-          - type: CheckBox
-            name: showDiagnosticSummary
           - type: CheckBox
             name: showMethodInfo

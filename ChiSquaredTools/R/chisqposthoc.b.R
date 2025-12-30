@@ -11,28 +11,158 @@ chisqposthocClass <- R6::R6Class(
     # -------------------------------------------------------------------------
     .init = function() {
       
+      # Early return if no variables selected
+      if (is.null(self$options$rows) || is.null(self$options$cols))
+        return()
+      
+      rowVar <- self$options$rows
+      colVar <- self$options$cols
+      
+      data <- self$data
+      
+      # Ensure factors
+      if (!is.factor(data[[rowVar]]))
+        data[[rowVar]] <- as.factor(data[[rowVar]])
+      if (!is.factor(data[[colVar]]))
+        data[[colVar]] <- as.factor(data[[colVar]])
+      
+      # Get levels
+      row_levels <- levels(data[[rowVar]])
+      col_levels <- levels(data[[colVar]])
+      
+      I <- length(row_levels)
+      J <- length(col_levels)
+      
+      # Store for later use in .run()
+      private$.rowLevels <- row_levels
+      private$.colLevels <- col_levels
+      private$.I <- I
+      private$.J <- J
+      
+      # ---------------------------------------------------------------------
+      # 1. Crosstab Table - pre-build structure (uses setRow in .run)
+      # ---------------------------------------------------------------------
+      table <- self$results$crosstabTable
+      table$setTitle(paste0(rowVar, " × ", colVar))
+      
+      table$addColumn(name = 'rowname', title = rowVar, type = 'text')
+      for (j in seq_len(J)) {
+        table$addColumn(name = paste0('col', j), title = col_levels[j], type = 'integer', superTitle = colVar)
+      }
+      table$addColumn(name = 'rowtotal', title = 'Total', type = 'integer')
+      
+      # Pre-add rows (including total) - these will be filled with setRow()
+      for (i in seq_len(I)) {
+        table$addRow(rowKey = paste0('row', i), values = list(
+          rowname = row_levels[i],
+          rowtotal = ''
+        ))
+      }
+      table$addRow(rowKey = 'total', values = list(rowname = 'Total', rowtotal = ''))
+      
+      # ---------------------------------------------------------------------
+      # 2. Pre-build metric tables that use setRow() pattern
+      # ---------------------------------------------------------------------
+      private$.prebuildMetricTable('stdresTable', 'Standardised Residuals', row_levels, col_levels, rowVar, colVar)
+      private$.prebuildMetricTable('momcorrstdresTable', 'Moment-Corrected Standardised Residuals', row_levels, col_levels, rowVar, colVar)
+      private$.prebuildMetricTable('adjstdresTable', 'Adjusted Standardised Residuals', row_levels, col_levels, rowVar, colVar)
+      private$.prebuildMetricTable('queteletTable', 'Quetelet Index', row_levels, col_levels, rowVar, colVar)
+      private$.prebuildMetricTable('ijTable', 'IJ Association Factor', row_levels, col_levels, rowVar, colVar)
+      private$.prebuildMetricTable('medpolishTable', 'Standardised Median Polish Residuals', row_levels, col_levels, rowVar, colVar)
+      private$.prebuildMetricTable('adjmedpolishTable', 'Adjusted Standardised Median Polish Residuals', row_levels, col_levels, rowVar, colVar)
+      
+      # ---------------------------------------------------------------------
+      # 3. Tables that are built entirely in .run() - DO NOT pre-build rows
+      # ---------------------------------------------------------------------
+      # PEM, GK residuals, DEP, BS Outlier tables are populated dynamically
+      # with addRow() in their respective populate methods, so we don't
+      # pre-build rows here.
+      
+      # depOutcome dropdown default
       if (!is.null(self$options$cols)) {
-        colVar <- self$options$cols
-        
         if (colVar %in% names(self$data)) {
           col_data <- self$data[[colVar]]
-          
-          if (is.factor(col_data)) {
-            levels_list <- levels(col_data)
-          } else {
-            levels_list <- unique(as.character(col_data))
-          }
-          
-          # Populate the depOutcome dropdown
+          levels_list <- levels(as.factor(col_data))
           depOutcome_option <- self$options$depOutcome
           if (is.null(depOutcome_option) || !(depOutcome_option %in% levels_list)) {
-            # Set default to first level if not already set
             private$.defaultDepOutcome <- levels_list[1]
           }
-          
-          # Update the option levels for the UI
-          self$results$depTable$setVisible(self$options$dep)
         }
+      }
+      
+      # ---------------------------------------------------------------------
+      # 4. Pre-build column structure for tables with dynamic columns
+      #    These tables use addRow() in .run(), so we need columns ready
+      # ---------------------------------------------------------------------
+      
+      # PEM Table - matrix format like other metrics
+      private$.prebuildMetricTable('pemTable', 'PEM with Confidence Intervals', row_levels, col_levels, rowVar, colVar)
+      
+      # GK Residuals Tables (Columns as Predictor)
+      gk_col_table <- self$results$gkresColTable
+      gk_col_table$addColumn(name = 'rowname', title = rowVar, type = 'text')
+      for (j in seq_along(col_levels)) {
+        gk_col_table$addColumn(name = paste0('col', j), title = col_levels[j], type = 'text', superTitle = colVar)
+      }
+      
+      # GK Residuals Tables (Rows as Predictor)
+      gk_row_table <- self$results$gkresRowTable
+      gk_row_table$addColumn(name = 'rowname', title = rowVar, type = 'text')
+      for (j in seq_along(col_levels)) {
+        gk_row_table$addColumn(name = paste0('col', j), title = col_levels[j], type = 'text', superTitle = colVar)
+      }
+      
+      # Pre-build GK Col table rows
+      for (i in seq_len(I)) {
+        gk_col_table$addRow(rowKey = i, values = list(rowname = row_levels[i]))
+      }
+      
+      # Pre-build GK Row table rows
+      for (i in seq_len(I)) {
+        gk_row_table$addRow(rowKey = i, values = list(rowname = row_levels[i]))
+      }
+      
+      # BS Outlier Matrix Table
+      bs_matrix_table <- self$results$bsOutlierMatrixTable
+      bs_matrix_table$addColumn(name = 'rowname', title = rowVar, type = 'text')
+      for (j in seq_along(col_levels)) {
+        bs_matrix_table$addColumn(name = paste0('col', j), title = col_levels[j], type = 'text', superTitle = colVar)
+      }
+      
+      # Pre-build BS Outlier Matrix rows
+      for (i in seq_len(I)) {
+        bs_matrix_table$addRow(rowKey = i, values = list(rowname = row_levels[i]))
+      }
+      
+      # Pre-build BS Outlier Detail table rows (up to bsKmax)
+      bs_detail_table <- self$results$bsOutlierDetailTable
+      k_max <- self$options$bsKmax
+      for (k in seq_len(k_max)) {
+        bs_detail_table$addRow(rowKey = k, values = list(rank = k))
+      }
+      
+      # DEP Table - columns are already defined in YAML
+      dep_table <- self$results$depTable
+      dep_table$setTitle(paste0("Dependence Evaluator Proportion (DEP): ", rowVar, " → ", colVar))
+      
+      # Pre-build DEP rows (one per row level)
+      for (i in seq_len(I)) {
+        dep_table$addRow(rowKey = i, values = list(rowCat = row_levels[i]))
+      }
+    },
+    
+    .prebuildMetricTable = function(table_name, title_base, row_levels, col_levels, rowVar, colVar) {
+      table <- self$results[[table_name]]
+      table$setTitle(paste0(title_base, ": ", rowVar, " × ", colVar))
+      
+      table$addColumn(name = 'rowname', title = rowVar, type = 'text')
+      for (j in seq_along(col_levels)) {
+        table$addColumn(name = paste0('col', j), title = col_levels[j], type = 'number', superTitle = colVar)
+      }
+      
+      I <- length(row_levels)
+      for (i in seq_len(I)) {
+        table$addRow(rowKey = paste0('row', i), values = list(rowname = row_levels[i]))
       }
     },
     
@@ -41,6 +171,20 @@ chisqposthocClass <- R6::R6Class(
       if (is.null(self$options$rows) || is.null(self$options$cols)) {
         return()
       }
+      
+      # === CLEAR ALL POSSIBLE FOOTNOTES FIRST ===
+      self$results$stdresTable$setNote('interp_stdres', NULL, init = FALSE)
+      self$results$momcorrstdresTable$setNote('interp_momcorr', NULL, init = FALSE)
+      self$results$adjstdresTable$setNote('interp_adjstdres', NULL, init = FALSE)
+      self$results$queteletTable$setNote('interp_quetelet', NULL, init = FALSE)
+      self$results$ijTable$setNote('interp_ij', NULL, init = FALSE)
+      self$results$medpolishTable$setNote('interp_medpolish', NULL, init = FALSE)
+      self$results$adjmedpolishTable$setNote('interp_adjmedpolish', NULL, init = FALSE)
+      self$results$pemTable$setNote('interp_pem', NULL, init = FALSE)
+      self$results$gkresColTable$setNote('interp_gkres', NULL, init = FALSE)
+      self$results$gkresRowTable$setNote('interp_gkres', NULL, init = FALSE)
+      self$results$depTable$setNote('interp_dep', NULL, init = FALSE)
+      self$results$bsOutlierMatrixTable$setNote('interp_bsoutlier', NULL, init = FALSE)
       
       rowVar <- self$options$rows
       colVar <- self$options$cols
@@ -74,41 +218,75 @@ chisqposthocClass <- R6::R6Class(
       col_totals <- colSums(contingency_table)
       expected <- outer(row_totals, col_totals) / n
       
+      # Convert confidence level from percentage to proportion once
+      private$.confLevelProp <- self$options$confLevel / 100
+      
       if (self$options$stdres) {
         stdres <- private$.computeStandardisedResiduals(contingency_table, expected)
-        private$.populateMetricTable(stdres, 'stdresTable', 'Standardised Residuals', rowVar, colVar)
-        private$.populateStdresNote()
+        # Compute threshold (Šidák-corrected or standard)
+        if (self$options$sidakCorrection) {
+          k <- private$.I * private$.J
+          alpha <- 0.05
+          alpha_corr <- 1 - (1 - alpha)^(1/k)
+          stdres_threshold <- qnorm(1 - alpha_corr / 2)
+        } else {
+          stdres_threshold <- 1.96
+        }
+        private$.populatePlainMetricTable(stdres, 'stdresTable', 
+                                          threshold = stdres_threshold, 
+                                          threshold_type = "abs")
       }
       
       if (self$options$momcorrstdres) {
         momcorrstdres <- private$.computeMomentCorrectedStandardisedResiduals(contingency_table, expected)
-        private$.populateMetricTable(momcorrstdres, 'momcorrstdresTable', 'Moment-Corrected Standardised Residuals', rowVar, colVar)
-        private$.populateMomCorrStdresNote()
+        # Compute threshold (Šidák-corrected or standard)
+        if (self$options$sidakCorrection) {
+          k <- private$.I * private$.J
+          alpha <- 0.05
+          alpha_corr <- 1 - (1 - alpha)^(1/k)
+          momcorr_threshold <- qnorm(1 - alpha_corr / 2)
+        } else {
+          momcorr_threshold <- 1.96
+        }
+        private$.populatePlainMetricTable(momcorrstdres, 'momcorrstdresTable', 
+                                          threshold = momcorr_threshold, 
+                                          threshold_type = "abs")
       }
       
       if (self$options$adjstdres) {
         adjstdres <- private$.computeAdjustedStandardisedResiduals(contingency_table, expected, n)
-        private$.populateMetricTable(adjstdres, 'adjstdresTable', 'Adjusted Standardised Residuals', rowVar, colVar)
-        private$.populateAdjstdresNote()
+        # Compute threshold (Šidák-corrected or standard)
+        if (self$options$sidakCorrection) {
+          k <- private$.I * private$.J
+          alpha <- 0.05
+          alpha_corr <- 1 - (1 - alpha)^(1/k)
+          adjstdres_threshold <- qnorm(1 - alpha_corr / 2)
+        } else {
+          adjstdres_threshold <- 1.96
+        }
+        private$.populatePlainMetricTable(adjstdres, 'adjstdresTable', 
+                                          threshold = adjstdres_threshold, 
+                                          threshold_type = "abs")
       }
       
       if (self$options$quetelet) {
         quetelet <- private$.computeQueteletIndex(contingency_table, expected)
-        private$.populateMetricTableEmpirical(quetelet, 'queteletTable', 'Quetelet Index', c(1.0, -0.50), rowVar, colVar)
-        private$.populateQueteletNote()
+        private$.populatePlainMetricTable(quetelet, 'queteletTable', 
+                                          threshold = NULL, 
+                                          threshold_type = "empirical_q")
       }
       
       if (self$options$ij) {
         ij <- private$.computeIJAssociation(contingency_table, expected)
-        private$.populateMetricTableEmpirical(ij, 'ijTable', 'IJ Association Factor', c(2.0, 0.5), rowVar, colVar)
-        private$.populateIJNote()
+        private$.populatePlainMetricTable(ij, 'ijTable', 
+                                          threshold = NULL, 
+                                          threshold_type = "empirical_ij")
       }
       
       if (self$options$bsOutlier) {
         bsoutlier_results <- private$.computeBackwardsSteppingOutliers(contingency_table)
         private$.populateBSOutlierMatrixTable(bsoutlier_results, rowVar, colVar)
         private$.populateBSOutlierDetailTable(bsoutlier_results, rowVar, colVar)
-        private$.populateBSOutlierNote(bsoutlier_results)
       }
       
       if (self$options$pem) {
@@ -122,7 +300,6 @@ chisqposthocClass <- R6::R6Class(
         }
         
         private$.populatePEMTable(pem_results, rowVar, colVar)
-        private$.populatePEMNote()
         
         # Prepare PEM plot if requested
         if (self$options$showPemPlot) {
@@ -134,19 +311,31 @@ chisqposthocClass <- R6::R6Class(
         mp_results <- private$.computeMedianPolishResiduals(contingency_table)
         
         if (self$options$medpolish) {
-          private$.populateMetricTableFourthSpread(mp_results$pearson_mp_residuals, 
-                                                   'medpolishTable', 
-                                                   'Standardised Median Polish Residuals', 
-                                                   rowVar, colVar)
-          private$.populateMedianPolishNote()
+          # Use boxplot fence thresholds for median polish
+          mp_vals <- as.vector(mp_results$pearson_mp_residuals)
+          F_U <- as.numeric(quantile(mp_vals, 0.75))
+          F_L <- as.numeric(quantile(mp_vals, 0.25))
+          d_F <- F_U - F_L
+          mp_lower <- F_L - 1.5 * d_F
+          mp_upper <- F_U + 1.5 * d_F
+          
+          private$.populatePlainMetricTable(mp_results$pearson_mp_residuals, 'medpolishTable', 
+                                            threshold = c(mp_lower, mp_upper), 
+                                            threshold_type = "fence")
         }
         
         if (self$options$adjmedpolish) {
-          private$.populateMetricTableFourthSpread(mp_results$haberman_mp_residuals, 
-                                                   'adjmedpolishTable', 
-                                                   'Adjusted Standardised Median Polish Residuals', 
-                                                   rowVar, colVar)
-          private$.populateAdjMedianPolishNote()
+          # Use boxplot fence thresholds for adjusted median polish
+          adjmp_vals <- as.vector(mp_results$haberman_mp_residuals)
+          adjmp_F_U <- as.numeric(quantile(adjmp_vals, 0.75))
+          adjmp_F_L <- as.numeric(quantile(adjmp_vals, 0.25))
+          adjmp_d_F <- adjmp_F_U - adjmp_F_L
+          adjmp_lower <- adjmp_F_L - 1.5 * adjmp_d_F
+          adjmp_upper <- adjmp_F_U + 1.5 * adjmp_d_F
+          
+          private$.populatePlainMetricTable(mp_results$haberman_mp_residuals, 'adjmedpolishTable', 
+                                            threshold = c(adjmp_lower, adjmp_upper), 
+                                            threshold_type = "fence")
         }
       }
       
@@ -158,77 +347,61 @@ chisqposthocClass <- R6::R6Class(
         private$.populateGKResidualTable(gk_results$row_predictor, 'gkresRowTable', 
                                          'Goodman-Kruskal Residuals (Rows as Predictor)', 
                                          rowVar, colVar, 'row')
-        private$.populateGKResNote()
       }
       
       if (self$options$dep) {
         dep_results <- private$.computeDEP(contingency_table, colVar)
         private$.populateDEPTable(dep_results, rowVar, colVar)
-        private$.populateDEPNote()
         
         if (self$options$showDepPlot) {
           private$.prepareDepPlotData(dep_results)
         }
       }
       
-      if (self$options$showSignificanceTables) {
-        private$.populateSignificanceTables()
-      }
-      
-      private$.populateReferences()
       private$.populateMethodInfo()
+      
+      # === APPLY FOOTNOTES (MUST BE AT THE END FOR RELIABLE RENDERING) ===
+      if (self$options$stdres) private$.addStdResNotice()
+      if (self$options$momcorrstdres) private$.addMomCorrStdResNotice()
+      if (self$options$adjstdres) private$.addAdjStdResNotice()
+      if (self$options$quetelet) private$.addQueteletNotice()
+      if (self$options$ij) private$.addIJNotice()
+      if (self$options$medpolish) private$.addMedPolishNotice()
+      if (self$options$adjmedpolish) private$.addAdjMedPolishNotice()
+      if (self$options$pem) private$.addPEMNotice()
+      if (self$options$gkres) private$.addGKResNotice()
+      if (self$options$dep) private$.addDEPNotice()
+      if (self$options$bsOutlier) private$.addBSOutlierNotice()
     },
+    
     .populateCrosstab = function(contingency_table) {
       
       table <- self$results$crosstabTable
       
-      I <- nrow(contingency_table)
-      J <- ncol(contingency_table)
-      row_names <- rownames(contingency_table)
-      col_names <- colnames(contingency_table)
+      I <- private$.I
+      J <- private$.J
+      row_levels <- private$.rowLevels
+      col_levels <- private$.colLevels
       
-      rowVar <- self$options$rows
-      colVar <- self$options$cols
-      
-      table$setTitle(paste0(rowVar, " × ", colVar))
-      
-      table$addColumn(
-        name = 'rowname',
-        title = rowVar,
-        type = 'text',
-        combineBelow = FALSE
-      )
-      
-      for (j in 1:J) {
-        table$addColumn(
-          name = paste0("col", j),
-          title = col_names[j],
-          type = 'integer',
-          superTitle = colVar
-        )
-      }
-      
-      table$addColumn(
-        name = 'rowtotal',
-        title = 'Total',
-        type = 'integer'
-      )
-      
-      for (i in 1:I) {
-        row_values <- list(rowname = row_names[i])
-        for (j in 1:J) {
+      # Fill pre-existing rows
+      for (i in seq_len(I)) {
+        row_values <- list()
+        for (j in seq_len(J)) {
           row_values[[paste0("col", j)]] <- contingency_table[i, j]
         }
         row_values[['rowtotal']] <- sum(contingency_table[i, ])
-        table$addRow(rowKey = i, values = row_values)
+        
+        table$setRow(rowKey = paste0('row', i), values = row_values)
       }
       
-      total_values <- list(rowname = 'Total')
-      for (j in 1:J) {
+      # Total row
+      total_values <- list()
+      for (j in seq_len(J)) {
         total_values[[paste0("col", j)]] <- sum(contingency_table[, j])
       }
       total_values[['rowtotal']] <- sum(contingency_table)
-      table$addRow(rowKey = 'total', values = total_values)
+      
+      table$setRow(rowKey = 'total', values = total_values)
     },
     
     .computeStandardisedResiduals = function(observed, expected) {
@@ -255,6 +428,7 @@ chisqposthocClass <- R6::R6Class(
       
       return(momcorrstdres)
     },
+    
     .computeAdjustedStandardisedResiduals = function(observed, expected, n) {
       
       row_props <- rowSums(observed) / n
@@ -278,6 +452,250 @@ chisqposthocClass <- R6::R6Class(
       private$.lastAdjStdRes <- adjstdres
       
       return(adjstdres)
+    },
+    
+    .addStdResNotice = function() {
+      table <- self$results$stdresTable
+      
+      if (self$options$sidakCorrection) {
+        k <- private$.I * private$.J
+        alpha <- 0.05
+        alpha_corr <- 1 - (1 - alpha)^(1/k)
+        threshold <- qnorm(1 - alpha_corr / 2)
+        notice_text <- paste0(
+          "Values greater than ", sprintf("%.3f", threshold),
+          " or less than ", sprintf("%.3f", -threshold),
+          " indicate significant deviation (Šidák-corrected α = ", sprintf("%.4f", alpha_corr), "). ",
+          "See Agresti (2013)."
+        )
+      } else {
+        notice_text <- paste0(
+          "Values greater than 1.96 or less than -1.96 indicate significant deviation (α = 0.05). ",
+          "See Agresti (2013)."
+        )
+      }
+      
+      table$setNote('interp_stdres', notice_text, init = FALSE)  # Table-wide footer note
+    },
+    
+    .addMomCorrStdResNotice = function() {
+      table <- self$results$momcorrstdresTable
+      
+      if (self$options$sidakCorrection) {
+        k <- private$.I * private$.J
+        alpha <- 0.05
+        alpha_corr <- 1 - (1 - alpha)^(1/k)
+        threshold <- qnorm(1 - alpha_corr / 2)
+        notice_text <- sprintf(
+          "Moment-corrected residuals adjust for table dimensions. Values > %.3f or < %.3f indicate significant deviation (Šidák-corrected α = %.4f). See Garcia-Perez & Nunez-Anton (2003).",
+          threshold, -threshold, alpha_corr
+        )
+      } else {
+        notice_text <- "Moment-corrected residuals adjust for table dimensions. Values > 1.96 or < -1.96 indicate significant deviation (α = 0.05). See Garcia-Perez & Nunez-Anton (2003)."
+      }
+      
+      table$setNote('interp_momcorr', notice_text, init = FALSE)
+    },
+    
+    .addAdjStdResNotice = function() {
+      table <- self$results$adjstdresTable
+      
+      if (self$options$sidakCorrection) {
+        k <- private$.I * private$.J
+        alpha <- 0.05
+        alpha_corr <- 1 - (1 - alpha)^(1/k)
+        threshold <- qnorm(1 - alpha_corr / 2)
+        notice_text <- sprintf(
+          "Adjusted residuals account for unequal marginal totals. Values > %.3f or < %.3f indicate significant deviation (Šidák-corrected α = %.4f). See Haberman (1973).",
+          threshold, -threshold, alpha_corr
+        )
+      } else {
+        notice_text <- "Adjusted residuals account for unequal marginal totals. Values > 1.96 or < -1.96 indicate significant deviation (α = 0.05). See Haberman (1973)."
+      }
+      
+      table$setNote('interp_adjstdres', notice_text, init = FALSE)
+    },
+    
+    .addQueteletNotice = function() {
+      table <- self$results$queteletTable
+      notice_text <- "Quetelet Index = (observed/expected) − 1. Empirical thresholds: >1.0 noteworthy positive, <-0.50 noteworthy negative. See Mirkin (2001, 2023)."
+      table$setNote('interp_quetelet', notice_text, init = FALSE)
+    },
+    
+    .addIJNotice = function() {
+      table <- self$results$ijTable
+      notice_text <- "IJ Factor = observed/expected. Empirical thresholds: >2.0 noteworthy positive, <0.5 noteworthy negative. See Good (1956); Agresti (2013)."
+      table$setNote('interp_ij', notice_text, init = FALSE)
+    },
+    
+    .addMedPolishNotice = function() {
+      table <- self$results$medpolishTable
+      
+      if (is.null(private$.lastMedPolish)) return()
+      
+      all_values <- as.vector(private$.lastMedPolish)
+      n_cells <- length(all_values)
+      F_U <- as.numeric(quantile(all_values, 0.75))
+      F_L <- as.numeric(quantile(all_values, 0.25))
+      d_F <- F_U - F_L
+      lower_cutoff <- F_L - 1.5 * d_F
+      upper_cutoff <- F_U + 1.5 * d_F
+      expected_outliers <- 0.007 * n_cells + 0.4
+      n_outliers <- sum(all_values < lower_cutoff | all_values > upper_cutoff)
+      
+      if (n_outliers > round(expected_outliers) + 1) {
+        outlier_text <- sprintf("Found %d extreme cells vs. ~%.1f expected; excess suggests genuine outliers.", n_outliers, expected_outliers)
+      } else if (n_outliers <= round(expected_outliers)) {
+        outlier_text <- sprintf("Found %d extreme cell(s), within %.1f expected; consistent with chance.", n_outliers, expected_outliers)
+      } else {
+        outlier_text <- sprintf("Found %d extreme cell(s) vs. ~%.1f expected; modest excess.", n_outliers, expected_outliers)
+      }
+      
+      notice_text <- sprintf(
+        "Fourth-spread rule: F_L = %.3f, F_U = %.3f, d_F = %.3f; cutoffs = %.3f / %.3f. %s See Mosteller & Parunak (1985); Simonoff (2003).",
+        F_L, F_U, d_F, lower_cutoff, upper_cutoff, outlier_text
+      )
+      
+      table$setNote('interp_medpolish', notice_text, init = FALSE)
+    },
+    
+    .addAdjMedPolishNotice = function() {
+      table <- self$results$adjmedpolishTable
+      
+      if (is.null(private$.lastAdjMedPolish)) return()
+      
+      all_values <- as.vector(private$.lastAdjMedPolish)
+      n_cells <- length(all_values)
+      F_U <- as.numeric(quantile(all_values, 0.75))
+      F_L <- as.numeric(quantile(all_values, 0.25))
+      d_F <- F_U - F_L
+      lower_cutoff <- F_L - 1.5 * d_F
+      upper_cutoff <- F_U + 1.5 * d_F
+      expected_outliers <- 0.007 * n_cells + 0.4
+      n_outliers <- sum(all_values < lower_cutoff | all_values > upper_cutoff)
+      
+      if (n_outliers > round(expected_outliers) + 1) {
+        outlier_text <- sprintf("Found %d extreme cells vs. ~%.1f expected; excess suggests genuine outliers.", n_outliers, expected_outliers)
+      } else if (n_outliers <= round(expected_outliers)) {
+        outlier_text <- sprintf("Found %d extreme cell(s), within %.1f expected; consistent with chance.", n_outliers, expected_outliers)
+      } else {
+        outlier_text <- sprintf("Found %d extreme cell(s) vs. ~%.1f expected; modest excess.", n_outliers, expected_outliers)
+      }
+      
+      notice_text <- sprintf(
+        "Haberman-adjusted. Fourth-spread rule: F_L = %.3f, F_U = %.3f, d_F = %.3f; cutoffs = %.3f / %.3f. %s See Mosteller & Parunak (1985).",
+        F_L, F_U, d_F, lower_cutoff, upper_cutoff, outlier_text
+      )
+      
+      table$setNote('interp_adjmedpolish', notice_text, init = FALSE)
+    },
+    
+    .addPEMNotice = function() {
+      table <- self$results$pemTable
+      
+      conf_level <- self$options$confLevel
+      n_reps <- self$options$bootstrapReps
+      
+      notice_text <- sprintf(
+        "PEM (Sakoda's D Local × 100) ranges -100%% to +100%%. Empirical thresholds: <5%% negligible, 5-10%% weak, ≥10%% interesting/noteworthy, ≥50%% exceptional. Significance: %.0f%% bootstrap CI (%d reps) excludes zero. See Cibois (1993); Lefèvre & Champely (2009); Sakoda (1981).",
+        conf_level, n_reps
+      )
+      
+      table$setNote('interp_pem', notice_text, init = FALSE)
+    },
+    
+    .addGKResNotice = function() {
+      notice_text <- "GK residuals = P(response|predictor) - P(response). Positive = predictor increases probability; negative = decreases. No formal thresholds. See Kroonenberg & Lombardo (1999)."
+      
+      self$results$gkresColTable$setNote('interp_gkres', notice_text, init = FALSE)
+      self$results$gkresRowTable$setNote('interp_gkres', notice_text, init = FALSE)
+    },
+    
+    .addDEPNotice = function() {
+      table <- self$results$depTable
+      
+      notice_text <- "Here DEP treats rows as independent (predictor) and columns as dependent (outcome). DEP ranges -1 to +1. Positive = outcome more probable; negative = less probable. Significance via chi-squared bounds (α = 0.05). See Gambirasio (2024)."
+      
+      table$setNote('interp_dep', notice_text, init = FALSE)
+    },
+    
+    .addBSOutlierNotice = function() {
+      table <- self$results$bsOutlierMatrixTable
+      
+      if (is.null(private$.lastBSOutlier)) return()
+      
+      results <- private$.lastBSOutlier
+      detected_count <- results$detected_count
+      k_max <- results$k_max
+      critical_value <- results$critical_value
+      nr <- nrow(results$del_res_matrix)
+      nc <- ncol(results$del_res_matrix)
+      RC <- nr * nc
+      
+      # Compute Simonoff's recommended range (20-30% of cells)
+      simonoff_low <- max(1, ceiling(0.20 * RC))
+      simonoff_high <- max(1, ceiling(0.30 * RC))
+      
+      if (detected_count > 0) {
+        detection_text <- sprintf("Detected %d outlier cell(s).", detected_count)
+      } else {
+        detection_text <- "No outlier cells detected."
+      }
+      
+      notice_text <- sprintf(
+        "%s Tested %d cells (k_max = %d; Simonoff suggests %d-%d for this %d x %d table). Cells flagged when G² drop > %.3f (χ²₁, α = 0.05/%d). See Simonoff (1988)",
+        detection_text, k_max, k_max, simonoff_low, simonoff_high, nr, nc, critical_value, RC
+      )
+      
+      table$setNote('interp_bsoutlier', notice_text, init = FALSE)
+    },
+    
+    # -------------------------------------------------------------------------
+    # Populate PEM table
+    # -------------------------------------------------------------------------
+    .populatePEMTable = function(pem_results, rowVar, colVar) {
+      
+      table <- self$results$pemTable
+      
+      conf_level <- self$options$confLevel
+      table$setTitle(paste0("PEM (%) with ", conf_level, "% CI: ", rowVar, " × ", colVar))
+      
+      pem <- pem_results$pem
+      ci_lower <- pem_results$ci_lower
+      ci_upper <- pem_results$ci_upper
+      
+      I <- private$.I
+      J <- private$.J
+      
+      for (i in seq_len(I)) {
+        row_values <- list()
+        for (j in seq_len(J)) {
+          pem_val <- pem[i, j]
+          ci_lo <- ci_lower[i, j]
+          ci_hi <- ci_upper[i, j]
+          
+          # Format as "value [lower, upper]" with colour if CI excludes zero
+          if (is.na(pem_val)) {
+            cell_text <- ""
+          } else {
+            # Check if CI excludes zero (significant)
+            ci_excludes_zero <- (ci_lo > 0) || (ci_hi < 0)
+            
+            if (ci_excludes_zero) {
+              # Apply red colour to significant values
+              cell_text <- sprintf(
+                "<span style='color: #C00000;'>%.1f [%.1f, %.1f]</span>", 
+                pem_val, ci_lo, ci_hi
+              )
+            } else {
+              cell_text <- sprintf("%.1f [%.1f, %.1f]", pem_val, ci_lo, ci_hi)
+            }
+          }
+          
+          row_values[[paste0("col", j)]] <- cell_text
+        }
+        table$setRow(rowKey = paste0('row', i), values = row_values)
+      }
     },
     
     .computeQueteletIndex = function(observed, expected) {
@@ -337,28 +755,53 @@ chisqposthocClass <- R6::R6Class(
       dimnames(pem_local) <- dimnames(N_matrix)
       
       B <- self$options$bootstrapReps
-      alpha <- 1 - self$options$confLevel
+      alpha <- 1 - private$.confLevelProp
       
       pem_boot <- array(NA, dim = c(I, J, B))
       
-      expanded_data <- data.frame(
-        row = rep(rep(1:I, J), times = as.vector(N_matrix)),
-        col = rep(rep(1:J, each = I), times = as.vector(N_matrix))
-      )
+      # Build expanded data correctly: one row per observation
+      # Iterate through cells to ensure correct row/col assignment
+      expanded_rows <- integer(0)
+      expanded_cols <- integer(0)
+      for (i in 1:I) {
+        for (j in 1:J) {
+          count <- N_matrix[i, j]
+          if (count > 0) {
+            expanded_rows <- c(expanded_rows, rep(i, count))
+            expanded_cols <- c(expanded_cols, rep(j, count))
+          }
+        }
+      }
+      expanded_data <- data.frame(row = expanded_rows, col = expanded_cols)
       
       for (b in 1:B) {
         boot_indices <- sample(1:nrow(expanded_data), replace = TRUE)
-        boot_table <- table(expanded_data[boot_indices, 1], 
-                            expanded_data[boot_indices, 2])
+        boot_sample <- expanded_data[boot_indices, ]
+        
+        # Convert to factors with fixed levels to ensure table dimensions match original
+        boot_row_factor <- factor(boot_sample$row, levels = 1:I)
+        boot_col_factor <- factor(boot_sample$col, levels = 1:J)
+        boot_table <- table(boot_row_factor, boot_col_factor)
         
         boot_N_iplus <- rowSums(boot_table)
         boot_N_plusj <- colSums(boot_table)
-        boot_E_ij <- outer(boot_N_iplus, boot_N_plusj) / N
+        boot_N <- sum(boot_table)
+        
+        # Avoid division by zero if bootstrap sample is degenerate
+        if (boot_N == 0) next
+        
+        boot_E_ij <- outer(boot_N_iplus, boot_N_plusj) / boot_N
         
         for (i in 1:I) {
           for (j in 1:J) {
             boot_n_ij <- boot_table[i, j]
             boot_e_ij <- boot_E_ij[i, j]
+            
+            # Handle edge case where expected is zero
+            if (boot_e_ij == 0) {
+              pem_boot[i, j, b] <- NA
+              next
+            }
             
             if (boot_n_ij >= boot_e_ij) {
               boot_max_ij <- min(boot_N_iplus[i], boot_N_plusj[j])
@@ -369,9 +812,13 @@ chisqposthocClass <- R6::R6Class(
                 pem_boot[i, j, b] <- 0
               }
             } else {
-              boot_min_ij <- 0
-              pem_boot[i, j, b] <- -((boot_e_ij - boot_n_ij) / 
-                                       (boot_e_ij - boot_min_ij)) * 100
+              boot_min_ij <- max(0, boot_N_iplus[i] + boot_N_plusj[j] - boot_N)
+              denom <- boot_e_ij - boot_min_ij
+              if (denom > 0) {
+                pem_boot[i, j, b] <- -((boot_e_ij - boot_n_ij) / denom) * 100
+              } else {
+                pem_boot[i, j, b] <- 0
+              }
             }
           }
         }
@@ -420,7 +867,7 @@ chisqposthocClass <- R6::R6Class(
       # Capture bootstrap-relevant options
       current_bootstrap_options <- list(
         bootstrapReps = self$options$bootstrapReps,
-        confLevel = self$options$confLevel,
+        confLevel = private$.confLevelProp,
         seed = self$options$seed
       )
       
@@ -458,7 +905,7 @@ chisqposthocClass <- R6::R6Class(
       
       private$.lastBootstrapOptions <- list(
         bootstrapReps = self$options$bootstrapReps,
-        confLevel = self$options$confLevel,
+        confLevel = private$.confLevelProp,
         seed = self$options$seed
       )
     },
@@ -639,9 +1086,9 @@ chisqposthocClass <- R6::R6Class(
       delta_current <- matrix(1, nr, nc)
       
       identified_cells <- list()
-      deleted_residuals <- numeric()
-      g2_drop_values <- numeric()
-      residual_signs <- numeric()
+      deleted_residuals <- rep(NA_real_, k_max)
+      g2_drop_values <- rep(NA_real_, k_max)
+      residual_signs <- rep(NA_real_, k_max)
       
       for (i in 1:k_max) {
         
@@ -690,6 +1137,12 @@ chisqposthocClass <- R6::R6Class(
         }
         
         # Record the i-th most extreme cell
+        # If no valid cell could be found, stop identification early
+        if (is.null(most_outlying)) {
+          break
+        }
+        
+        # Record the i-th most extreme cell
         identified_cells[[i]] <- most_outlying
         deleted_residuals[i] <- best_del_res
         residual_signs[i] <- sign(best_del_res)
@@ -713,6 +1166,8 @@ chisqposthocClass <- R6::R6Class(
       # Test from least extreme (k_max) to most extreme (1)
       detected_count <- 0
       for (i in k_max:1) {
+        # Skip NA values (cells that couldn't be evaluated)
+        if (is.na(g2_drop_values[i])) next
         if (g2_drop_values[i] > critical_value) {
           detected_count <- i
           break
@@ -764,7 +1219,7 @@ chisqposthocClass <- R6::R6Class(
         detail_list = detail_list,
         critical_value = critical_value,
         alpha = alpha,
-        k_max = k_max,
+        k_max = length(detail_list),
         detected_count = detected_count
       )
       
@@ -894,271 +1349,57 @@ chisqposthocClass <- R6::R6Class(
       return(results_list)
     },
     
-    .populateMetricTable = function(metric_matrix, table_name, metric_label, rowVar, colVar) {
+    .populatePlainMetricTable = function(metric_matrix, table_name, threshold = NULL, 
+                                         threshold_type = "abs") {
+      # threshold_type: "abs" for |value| > threshold (residuals)
+      #                 "empirical_q" for Quetelet (>1.0 or <-0.5)
+      #                 "empirical_ij" for IJ (>2.0 or <0.5)
       
       table <- self$results[[table_name]]
       
-      table$setTitle(paste0(metric_label, ": ", rowVar, " × ", colVar))
+      I <- private$.I
+      J <- private$.J
       
-      I <- nrow(metric_matrix)
-      J <- ncol(metric_matrix)
-      row_names <- rownames(metric_matrix)
-      col_names <- colnames(metric_matrix)
-      
-      if (metric_label %in% c('Standardised Residuals', 'Moment-Corrected Standardised Residuals', 'Adjusted Standardised Residuals')) {
-        
-        if (self$options$sidakCorrection) {
-          k <- I * J
-          alpha <- 0.05
-          alpha_corrected <- 1 - (1 - alpha)^(1/k)
-          threshold <- qnorm(1 - alpha_corrected/2)
-        } else {
-          threshold <- 1.96
-        }
-        
-      } else if (metric_label %in% c('Standardised Median Polish Residuals', 
-                                     'Adjusted Standardised Median Polish Residuals')) {
-        threshold <- 3
-      } else {
-        threshold <- NULL
-      }
-      
-      table$addColumn(
-        name = 'rowname',
-        title = rowVar,
-        type = 'text',
-        combineBelow = FALSE
-      )
-      
-      for (j in 1:J) {
-        table$addColumn(
-          name = paste0("col", j),
-          title = col_names[j],
-          type = 'text',
-          superTitle = colVar,
-          combineBelow = FALSE
-        )
-      }
-      
-      for (i in 1:I) {
-        row_values <- list(rowname = row_names[i])
-        
-        for (j in 1:J) {
+      for (i in seq_len(I)) {
+        row_values <- list()
+        for (j in seq_len(J)) {
           value <- metric_matrix[i, j]
-          
-          formatted_value <- sprintf("%.3f", value)
-          
-          if (!is.null(threshold)) {
-            if (abs(value) > threshold) {
-              if (value > 0) {
-                formatted_value <- paste0("<span style='display: block; text-align: center; color: red;'>", formatted_value, "</span>")
-              } else {
-                formatted_value <- paste0("<span style='display: block; text-align: center; color: blue;'>", formatted_value, "</span>")
+          cell_text <- if (is.na(value)) "" else sprintf("%.3f", value)
+          row_values[[paste0("col", j)]] <- cell_text
+        }
+        table$setRow(rowKey = paste0('row', i), values = row_values)
+        
+        # Apply highlighting if threshold is provided
+        if (!is.null(threshold)) {
+          for (j in seq_len(J)) {
+            value <- metric_matrix[i, j]
+            if (!is.na(value)) {
+              is_significant <- FALSE
+              
+              if (threshold_type == "abs") {
+                # Symmetric threshold: |value| > threshold
+                is_significant <- abs(value) > threshold
+              } else if (threshold_type == "empirical_q") {
+                # Quetelet: >1.0 or <-0.5
+                is_significant <- (value > 1.0) || (value < -0.5)
+              } else if (threshold_type == "empirical_ij") {
+                # IJ: >2.0 or <0.5
+                is_significant <- (value > 2.0) || (value < 0.5)
+              } else if (threshold_type == "fence") {
+                # Boxplot fences: value < lower OR value > upper
+                is_significant <- (value < threshold[1]) || (value > threshold[2])
               }
-            } else {
-              formatted_value <- paste0("<span style='display: block; text-align: center;'>", formatted_value, "</span>")
+              
+              if (is_significant) {
+                table$addFormat(
+                  rowKey = paste0('row', i),
+                  col = paste0('col', j),
+                  format = Cell.NEGATIVE
+                )
+              }
             }
-          } else {
-            formatted_value <- paste0("<span style='display: block; text-align: center;'>", formatted_value, "</span>")
           }
-          
-          row_values[[paste0("col", j)]] <- formatted_value
         }
-        
-        table$addRow(rowKey = i, values = row_values)
-      }
-    },
-    .populateMetricTableFourthSpread = function(metric_matrix, table_name, metric_label, rowVar, colVar) {
-      
-      table <- self$results[[table_name]]
-      
-      table$setTitle(paste0(metric_label, ": ", rowVar, " × ", colVar))
-      
-      I <- nrow(metric_matrix)
-      J <- ncol(metric_matrix)
-      row_names <- rownames(metric_matrix)
-      col_names <- colnames(metric_matrix)
-      
-      # Compute fourth-spread thresholds (Hoaglin et al. 1985)
-      all_values <- as.vector(metric_matrix)
-      n_cells <- length(all_values)
-      F_U <- quantile(all_values, 0.75)  # Upper fourth (75th percentile)
-      F_L <- quantile(all_values, 0.25)  # Lower fourth (25th percentile)
-      d_F <- F_U - F_L                   # Fourth-spread (interquartile range)
-      
-      lower_cutoff <- F_L - 1.5 * d_F
-      upper_cutoff <- F_U + 1.5 * d_F
-      
-      # Expected number of outliers (Hoaglin, Iglewicz, & Tukey 1981)
-      expected_outliers <- 0.007 * n_cells + 0.4
-      
-      # Count actual outliers
-      n_outliers <- sum(all_values < lower_cutoff | all_values > upper_cutoff)
-      
-      # Store thresholds for later use
-      private$.lastMedPolishThresholds <- list(
-        lower = lower_cutoff,
-        upper = upper_cutoff,
-        F_L = F_L,
-        F_U = F_U,
-        d_F = d_F,
-        n_cells = n_cells,
-        expected_outliers = expected_outliers,
-        n_outliers = n_outliers
-      )
-      
-      table$addColumn(
-        name = 'rowname',
-        title = rowVar,
-        type = 'text',
-        combineBelow = FALSE
-      )
-      
-      for (j in 1:J) {
-        table$addColumn(
-          name = paste0("col", j),
-          title = col_names[j],
-          type = 'text',
-          superTitle = colVar,
-          combineBelow = FALSE
-        )
-      }
-      
-      for (i in 1:I) {
-        row_values <- list(rowname = row_names[i])
-        
-        for (j in 1:J) {
-          value <- metric_matrix[i, j]
-          
-          formatted_value <- sprintf("%.3f", value)
-          
-          if (value > upper_cutoff) {
-            formatted_value <- paste0("<span style='display: block; text-align: center; color: red;'>", formatted_value, "</span>")
-          } else if (value < lower_cutoff) {
-            formatted_value <- paste0("<span style='display: block; text-align: center; color: blue;'>", formatted_value, "</span>")
-          } else {
-            formatted_value <- paste0("<span style='display: block; text-align: center;'>", formatted_value, "</span>")
-          }
-          
-          row_values[[paste0("col", j)]] <- formatted_value
-        }
-        
-        table$addRow(rowKey = i, values = row_values)
-      }
-    },
-    
-    .populateMetricTableEmpirical = function(metric_matrix, table_name, metric_label, thresholds, rowVar, colVar) {
-      
-      table <- self$results[[table_name]]
-      
-      table$setTitle(paste0(metric_label, ": ", rowVar, " × ", colVar))
-      
-      I <- nrow(metric_matrix)
-      J <- ncol(metric_matrix)
-      row_names <- rownames(metric_matrix)
-      col_names <- colnames(metric_matrix)
-      
-      positive_threshold <- thresholds[1]
-      negative_threshold <- thresholds[2]
-      
-      table$addColumn(
-        name = 'rowname',
-        title = rowVar,
-        type = 'text',
-        combineBelow = FALSE
-      )
-      
-      for (j in 1:J) {
-        table$addColumn(
-          name = paste0("col", j),
-          title = col_names[j],
-          type = 'text',
-          superTitle = colVar,
-          combineBelow = FALSE
-        )
-      }
-      
-      for (i in 1:I) {
-        row_values <- list(rowname = row_names[i])
-        
-        for (j in 1:J) {
-          value <- metric_matrix[i, j]
-          
-          formatted_value <- sprintf("%.3f", value)
-          
-          if (value > positive_threshold) {
-            formatted_value <- paste0("<span style='display: block; text-align: center; color: red;'>", formatted_value, "</span>")
-          } else if (value < negative_threshold) {
-            formatted_value <- paste0("<span style='display: block; text-align: center; color: blue;'>", formatted_value, "</span>")
-          } else {
-            formatted_value <- paste0("<span style='display: block; text-align: center;'>", formatted_value, "</span>")
-          }
-          
-          row_values[[paste0("col", j)]] <- formatted_value
-        }
-        
-        table$addRow(rowKey = i, values = row_values)
-      }
-    },
-    
-    .populatePEMTable = function(pem_results, rowVar, colVar) {
-      
-      table <- self$results$pemTable
-      
-      table$setTitle(paste0("PEM / Sakoda's D Local with Confidence Intervals: ", rowVar, " × ", colVar))
-      
-      pem <- pem_results$pem
-      ci_lower <- pem_results$ci_lower
-      ci_upper <- pem_results$ci_upper
-      
-      I <- nrow(pem)
-      J <- ncol(pem)
-      row_names <- rownames(pem)
-      col_names <- colnames(pem)
-      
-      table$addColumn(
-        name = 'rowname',
-        title = rowVar,
-        type = 'text',
-        combineBelow = FALSE
-      )
-      
-      for (j in 1:J) {
-        table$addColumn(
-          name = paste0("col", j),
-          title = col_names[j],
-          type = 'text',
-          superTitle = colVar,
-          combineBelow = FALSE
-        )
-      }
-      
-      for (i in 1:I) {
-        row_values <- list(rowname = row_names[i])
-        
-        for (j in 1:J) {
-          pem_value <- pem[i, j]
-          ci_low <- ci_lower[i, j]
-          ci_up <- ci_upper[i, j]
-          
-          is_significant <- (ci_low > 0) || (ci_up < 0)
-          
-          formatted_value <- sprintf("%.1f [%.1f, %.1f]", pem_value, ci_low, ci_up)
-          
-          if (is_significant) {
-            if (pem_value > 0) {
-              formatted_value <- paste0("<span style='display: block; text-align: center; color: red;'>", formatted_value, "</span>")
-            } else {
-              formatted_value <- paste0("<span style='display: block; text-align: center; color: blue;'>", formatted_value, "</span>")
-            }
-          } else {
-            formatted_value <- paste0("<span style='display: block; text-align: center;'>", formatted_value, "</span>")
-          }
-          
-          row_values[[paste0("col", j)]] <- formatted_value
-        }
-        
-        table$addRow(rowKey = i, values = row_values)
       }
     },
     
@@ -1176,29 +1417,26 @@ chisqposthocClass <- R6::R6Class(
       for (i in seq_along(dep_results)) {
         result <- dep_results[[i]]
         
-        # Format significance cell with colour
-        if (!is.na(result$dep)) {
-          if (result$significant) {
-            if (result$dep > 0) {
-              sig_formatted <- paste0("<span style='color: red;'>", result$conclusion, "</span>")
-            } else {
-              sig_formatted <- paste0("<span style='color: blue;'>", result$conclusion, "</span>")
-            }
-          } else {
-            sig_formatted <- result$conclusion
-          }
-        } else {
-          sig_formatted <- result$conclusion
-        }
+        # Plain text significance (no colour)
+        sig_text <- if (is.na(result$dep)) result$conclusion else result$conclusion
         
-        table$addRow(rowKey = i, values = list(
+        table$setRow(rowKey = i, values = list(
           rowCat = result$row,
           depOutcome = result$outcome,
           depValue = if (is.na(result$dep)) NA else round(result$dep, 4),
           sigLower = if (is.na(result$sig_lower)) NA else round(result$sig_lower, 4),
           sigUpper = if (is.na(result$sig_upper)) NA else round(result$sig_upper, 4),
-          significance = sig_formatted
+          significance = sig_text
         ))
+        
+        # Apply highlighting to DEP value if significant
+        if (!is.na(result$dep) && result$significant) {
+          table$addFormat(
+            rowKey = i,
+            col = 'depValue',
+            format = Cell.NEGATIVE
+          )
+        }
       }
     },
     
@@ -1210,10 +1448,8 @@ chisqposthocClass <- R6::R6Class(
       table <- self$results[[table_name]]
       
       if (predictor_type == 'col') {
-        # Columns as predictor, rows as response
         table$setTitle(paste0(title_label, ": ", colVar, " → ", rowVar))
       } else {
-        # Rows as predictor, columns as response
         table$setTitle(paste0(title_label, ": ", rowVar, " → ", colVar))
       }
       
@@ -1222,33 +1458,13 @@ chisqposthocClass <- R6::R6Class(
       row_names <- rownames(gk_matrix)
       col_names <- colnames(gk_matrix)
       
-      # Add row name column
-      table$addColumn(
-        name = 'rowname',
-        title = rowVar,
-        type = 'text',
-        combineBelow = FALSE
-      )
-      
-      # Add columns for each column category
-      for (j in 1:J) {
-        table$addColumn(
-          name = paste0("col", j),
-          title = col_names[j],
-          type = 'text',
-          superTitle = colVar,
-          combineBelow = FALSE
-        )
-      }
-      
-      # Populate rows
+      # Use setRow on pre-built rows
       for (i in 1:I) {
         row_values <- list(rowname = row_names[i])
         
         for (j in 1:J) {
           value <- gk_matrix[i, j]
           
-          # Format to 3 decimal places, no colour-coding (no formal thresholds)
           formatted_value <- sprintf("%.3f", value)
           formatted_value <- paste0("<span style='display: block; text-align: center;'>", 
                                     formatted_value, "</span>")
@@ -1256,7 +1472,7 @@ chisqposthocClass <- R6::R6Class(
           row_values[[paste0("col", j)]] <- formatted_value
         }
         
-        table$addRow(rowKey = i, values = row_values)
+        table$setRow(rowKey = i, values = row_values)
       }
     },
     
@@ -1277,26 +1493,7 @@ chisqposthocClass <- R6::R6Class(
       row_names <- rownames(del_res_matrix)
       col_names <- colnames(del_res_matrix)
       
-      # Add row name column
-      table$addColumn(
-        name = 'rowname',
-        title = rowVar,
-        type = 'text',
-        combineBelow = FALSE
-      )
-      
-      # Add columns for each column category
-      for (j in 1:J) {
-        table$addColumn(
-          name = paste0("col", j),
-          title = col_names[j],
-          type = 'text',
-          superTitle = colVar,
-          combineBelow = FALSE
-        )
-      }
-      
-      # Populate rows
+      # Use setRow on pre-built rows
       for (i in 1:I) {
         row_values <- list(rowname = row_names[i])
         
@@ -1305,31 +1502,29 @@ chisqposthocClass <- R6::R6Class(
           is_detected <- detection_matrix[i, j]
           
           if (is.na(value)) {
-            # Cell was not among the k_max identified
-            formatted_value <- paste0("<span style='display: block; text-align: center; color: #999;'>—</span>")
+            formatted_value <- "—"
           } else {
-            formatted_value <- sprintf("%.3f", value)
+            # Format the numeric value
+            num_str <- sprintf("%.3f", value)
             
+            # Apply red colouring if this cell is detected as an outlier
             if (is_detected) {
-              # Detected outlier: colour by sign (no bold, consistent with other methods)
-              if (value > 0) {
-                formatted_value <- paste0("<span style='display: block; text-align: center; color: red;'>", formatted_value, "</span>")
-              } else {
-                formatted_value <- paste0("<span style='display: block; text-align: center; color: blue;'>", formatted_value, "</span>")
-              }
+              formatted_value <- sprintf("<span style='color: #C00000;'>%s</span>", num_str)
             } else {
-              # Identified but not detected
-              formatted_value <- paste0("<span style='display: block; text-align: center;'>", formatted_value, "</span>")
+              formatted_value <- num_str
             }
           }
           
           row_values[[paste0("col", j)]] <- formatted_value
         }
         
-        table$addRow(rowKey = i, values = row_values)
+        table$setRow(rowKey = i, values = row_values)
       }
     },
     
+    # -------------------------------------------------------------------------
+    # Populate Backwards-Stepping Outlier Detail Table
+    # -------------------------------------------------------------------------
     # -------------------------------------------------------------------------
     # Populate Backwards-Stepping Outlier Detail Table
     # -------------------------------------------------------------------------
@@ -1340,134 +1535,38 @@ chisqposthocClass <- R6::R6Class(
       table$setTitle(paste0("Backwards-Stepping: Identified Cells (by extremeness)"))
       
       detail_list <- results$detail_list
-      critical_value <- results$critical_value
+      k_max <- self$options$bsKmax
+      actual_identified <- length(detail_list)
       
-      for (i in seq_along(detail_list)) {
-        item <- detail_list[[i]]
-        
-        # Format cell name with actual level names
-        cell_name <- paste0(item$row_name, " / ", item$col_name)
-        
-        # Format detected column with colour
-        if (item$detected) {
-          if (item$deleted_residual > 0) {
-            detected_formatted <- paste0("<span style='color: red;'>Yes</span>")
-          } else {
-            detected_formatted <- paste0("<span style='color: blue;'>Yes</span>")
-          }
+      # Use setRow on pre-built rows, but only populate rows with actual data
+      for (i in seq_len(k_max)) {
+        if (i <= actual_identified && !is.null(detail_list[[i]])) {
+          item <- detail_list[[i]]
+          
+          # Format cell name with actual level names
+          cell_name <- paste0(item$row_name, " / ", item$col_name)
+          
+          # Format detected column (plain text, no colour)
+          detected_text <- if (item$detected) "Yes" else "No"
+          
+          table$setRow(rowKey = i, values = list(
+            rank = item$rank,
+            cell = cell_name,
+            delRes = round(item$deleted_residual, 3),
+            g2Drop = round(item$g2_drop, 3),
+            detected = detected_text
+          ))
         } else {
-          detected_formatted <- "No"
+          # Hide unused pre-built rows by setting them invisible or blank
+          table$setRow(rowKey = i, values = list(
+            rank = '',
+            cell = '',
+            delRes = '',
+            g2Drop = '',
+            detected = ''
+          ))
         }
-        
-        table$addRow(rowKey = i, values = list(
-          rank = item$rank,
-          cell = cell_name,
-          delRes = round(item$deleted_residual, 3),
-          g2Drop = round(item$g2_drop, 3),
-          detected = detected_formatted
-        ))
       }
-    },
-    
-    # -------------------------------------------------------------------------
-    # Populate Backwards-Stepping Outlier interpretation note
-    # -------------------------------------------------------------------------
-    .populateBSOutlierNote = function(results) {
-      
-      critical_value <- results$critical_value
-      k_max <- results$k_max
-      detected_count <- results$detected_count
-      alpha <- results$alpha
-      nr <- nrow(results$del_res_matrix)
-      nc <- ncol(results$del_res_matrix)
-      RC <- nr * nc
-      
-      if (detected_count > 0) {
-        detection_text <- sprintf(
-          "The backwards-stepping procedure detected <strong>%d outlier cell(s)</strong>. ",
-          detected_count
-        )
-      } else {
-        detection_text <- "The backwards-stepping procedure detected <strong>no outlier cells</strong>. "
-      }
-      
-      # Compute Simonoff's recommended range (20-30% of cells)
-      simonoff_low <- max(1, ceiling(0.20 * RC))
-      simonoff_high <- max(1, ceiling(0.30 * RC))
-      
-      note_html <- paste0(
-        "<div style='font-size: 0.9em; color: #555; margin: 10px 0;'>",
-        "<p><strong>Interpretation:</strong> ",
-        detection_text,
-        sprintf(
-          "Up to %d cells were tested (k<sub>max</sub> = %d). ",
-          k_max, k_max
-        ),
-        sprintf(
-          "<em>Note:</em> For this %d × %d table (%d cells), Simonoff (1988, p. 340) suggests k<sub>max</sub> in the range %d–%d (i.e., 20–30%% of cells). ",
-          nr, nc, RC, simonoff_low, simonoff_high
-        ),
-        sprintf(
-          "The Bonferroni-corrected critical value was %.3f (α = %.3f / %d cells, χ²<sub>1</sub>). ",
-          critical_value, alpha, RC
-        ),
-        "Cells are ordered by extremeness based on deleted residuals. ",
-        "The G² drop measures how much the lack-of-fit statistic decreases when each cell is removed from the model. ",
-        "Detected outliers are those whose G² drop exceeds the critical value, testing from least to most extreme (backwards-stepping). ",
-        "<strong>Colour-coding:</strong> <span style='color: red;'>red</span> = significant positive (attraction), ",
-        "<span style='color: blue;'>blue</span> = significant negative (repulsion).</p>",
-        "<p style='font-size: 0.85em; color: #666; margin-top: 5px;'>",
-        "<em>See: Simonoff 1988.</em></p>",
-        "</div>"
-      )
-      
-      self$results$bsOutlierNote$setContent(note_html)
-    },
-    
-    # -------------------------------------------------------------------------
-    # Populate GK Residuals interpretation note
-    # -------------------------------------------------------------------------
-    .populateGKResNote = function() {
-      
-      rowVar <- self$options$rows
-      colVar <- self$options$cols
-      
-      note_html <- paste0(
-        "<div style='font-size: 0.9em; color: #555; margin: 10px 0;'>",
-        "<p><strong>Interpretation:</strong> ",
-        "Goodman-Kruskal residuals measure how knowing the predictor category changes the probability ",
-        "of each response category relative to its marginal (unconditional) probability. ",
-        "For <strong>", colVar, " → ", rowVar, "</strong>: positive values indicate that knowing the column category ",
-        "<em>increases</em> the probability of the row category above its marginal rate; ",
-        "negative values indicate a <em>decrease</em>. ",
-        "For <strong>", rowVar, " → ", colVar, "</strong>: the interpretation is reversed (rows predict columns). ",
-        "Values are comparable within each table and reflect the <em>magnitude</em> of predictability shift. ",
-        "No formal significance thresholds exist; interpret relative magnitudes in context.</p>",
-        "<p style='font-size: 0.85em; color: #666; margin-top: 5px;'>",
-        "<em>See: Kroonenberg & Lombardo 1999; Beh & Lombardo 2021.</em></p>",
-        "</div>"
-      )
-      self$results$gkresNote$setContent(note_html)
-    },
-    
-    .populateDEPNote = function() {
-      note_html <- paste0(
-        "<div style='font-size: 0.9em; color: #555; margin: 10px 0;'>",
-        "<p><strong>Interpretation:</strong> ",
-        "For each row category, DEP measures whether the probability of the designated outcome ",
-        "(as opposed to other outcomes) is higher or lower than in all other rows combined. ",
-        "DEP = 0 indicates independence; positive values indicate the outcome is more probable in this row; ",
-        "negative values indicate it is less probable. ",
-        "DEP ranges from -1 to +1. ",
-        "<strong>Significance:</strong> Determined by chi-squared-derived bounds (α = 0.05). ",
-        "<strong>Colour-coding:</strong> <span style='color: red;'>red</span> = significant positive, ",
-        "<span style='color: blue;'>blue</span> = significant negative.</p>",
-        "<p style='font-size: 0.85em; color: #666; margin-top: 5px;'>",
-        "<em>Note: DEP treats the column variable as the dependent variable. ",
-        "See: Gambirasio 2024 (preprint).</em></p>",
-        "</div>"
-      )
-      self$results$depNote$setContent(note_html)
     },
     
     # -------------------------------------------------------------------------
@@ -1510,155 +1609,6 @@ chisqposthocClass <- R6::R6Class(
       
       image <- self$results$depPlot
       image$setState(plot_data)
-    },
-    
-    .populateStdresNote = function() {
-      
-      # Calculate threshold (with or without Šidák correction)
-      if (self$options$sidakCorrection && !is.null(private$.lastStdRes)) {
-        k <- nrow(private$.lastStdRes) * ncol(private$.lastStdRes)
-        alpha <- 0.05
-        alpha_corrected <- 1 - (1 - alpha)^(1/k)
-        threshold_used <- qnorm(1 - alpha_corrected/2)
-        correction_text <- sprintf(
-          " with Šidák correction (α<sub>adjusted</sub> = %.4f, threshold = ±%.3f for %d comparisons)",
-          alpha_corrected, threshold_used, k
-        )
-        threshold_display <- sprintf("%.3f", threshold_used)
-      } else {
-        correction_text <- ""
-        threshold_display <- "1.96"
-      }
-      
-      note_html <- paste0(
-        "<div style='font-size: 0.9em; color: #555; margin: 10px 0;'>",
-        "<p><strong>Interpretation:</strong> ",
-        "Standardised residuals measure deviation from independence. ",
-        "Values &gt;", threshold_display, " or &lt;-", threshold_display, " (α=0.05) indicate significant association",
-        correction_text,
-        ". Positive values indicate attraction between levels, negative values indicate repulsion. ",
-        "<strong>Colour-coding:</strong> <span style='color: red;'>red</span> = significant positive, ",
-        "<span style='color: blue;'>blue</span> = significant negative.</p>",
-        "</div>"
-      )
-      self$results$stdresNote$setContent(note_html)
-    },
-    
-    .populateMomCorrStdresNote = function() {
-      
-      # Calculate threshold (with or without Šidák correction)
-      if (self$options$sidakCorrection && !is.null(private$.lastMomCorrStdRes)) {
-        k <- nrow(private$.lastMomCorrStdRes) * ncol(private$.lastMomCorrStdRes)
-        alpha <- 0.05
-        alpha_corrected <- 1 - (1 - alpha)^(1/k)
-        threshold_used <- qnorm(1 - alpha_corrected/2)
-        correction_text <- sprintf(
-          " with Šidák correction (α<sub>adjusted</sub> = %.4f, threshold = ±%.3f for %d comparisons)",
-          alpha_corrected, threshold_used, k
-        )
-        threshold_display <- sprintf("%.3f", threshold_used)
-      } else {
-        correction_text <- ""
-        threshold_display <- "1.96"
-      }
-      
-      note_html <- paste0(
-        "<div style='font-size: 0.9em; color: #555; margin: 10px 0;'>",
-        "<p><strong>Interpretation:</strong> ",
-        "Moment-corrected standardised residuals adjust for the number of rows and columns, ",
-        "providing a correction that accounts for table dimensions. ",
-        "Values &gt;", threshold_display, " or &lt;-", threshold_display, " (α=0.05) indicate significant association",
-        correction_text,
-        ". Positive values indicate attraction between levels, negative values indicate repulsion. ",
-        "<strong>Colour-coding:</strong> <span style='color: red;'>red</span> = significant positive, ",
-        "<span style='color: blue;'>blue</span> = significant negative.</p>",
-        "<p style='font-size: 0.85em; color: #666; margin-top: 5px;'><em>See: Garcia-Perez & Nunez-Anton 2003.</em></p>",
-        "</div>"
-      )
-      self$results$momcorrstdresNote$setContent(note_html)
-    },
-    .populateAdjstdresNote = function() {
-      
-      # Calculate threshold (with or without Šidák correction)
-      if (self$options$sidakCorrection && !is.null(private$.lastAdjStdRes)) {
-        k <- nrow(private$.lastAdjStdRes) * ncol(private$.lastAdjStdRes)
-        alpha <- 0.05
-        alpha_corrected <- 1 - (1 - alpha)^(1/k)
-        threshold_used <- qnorm(1 - alpha_corrected/2)
-        correction_text <- sprintf(
-          " with Šidák correction (α<sub>adjusted</sub> = %.4f, threshold = ±%.3f for %d comparisons)",
-          alpha_corrected, threshold_used, k
-        )
-        threshold_display <- sprintf("%.3f", threshold_used)
-      } else {
-        correction_text <- ""
-        threshold_display <- "1.96"
-      }
-      
-      note_html <- paste0(
-        "<div style='font-size: 0.9em; color: #555; margin: 10px 0;'>",
-        "<p><strong>Interpretation:</strong> ",
-        "Adjusted standardised residuals account for unequal marginal totals. ",
-        "Values &gt;", threshold_display, " or &lt;-", threshold_display, " (α=0.05) indicate significant association",
-        correction_text,
-        ". Positive values indicate attraction between levels, negative values indicate repulsion. ",
-        "<strong>Colour-coding:</strong> <span style='color: red;'>red</span> = significant positive, ",
-        "<span style='color: blue;'>blue</span> = significant negative.</p>",
-        "<p style='font-size: 0.85em; color: #666; margin-top: 5px;'><em>See: Haberman 1973.</em></p>",
-        "</div>"
-      )
-      self$results$adjstdresNote$setContent(note_html)
-    },
-    
-    .populateQueteletNote = function() {
-      note_html <- paste0(
-        "<div style='font-size: 0.9em; color: #555; margin: 10px 0;'>",
-        "<p><strong>Interpretation:</strong> ",
-        "Quetelet Index = (observed freq/expected freq) − 1. ",
-        "It expresses the relative change in probability when considering the association. ",
-        "A value of 0.50 means the probability is 50% higher than expected under independence; ",
-        "-0.30 means 30% lower. ",
-        "<strong>Empirical magnitude thresholds:</strong> &gt;1.0 (noteworthy positive), &lt;-0.50 (noteworthy negative). ",
-        "<strong>Colour-coding:</strong> <span style='color: red;'>red</span> = noteworthy positive, ",
-        "<span style='color: blue;'>blue</span> = noteworthy negative.</p>",
-        "<p style='font-size: 0.85em; color: #666; margin-top: 5px;'><em>See: Mirkin 2001, 2023.</em></p>",
-        "</div>"
-      )
-      self$results$queteletNote$setContent(note_html)
-    },
-    
-    .populateIJNote = function() {
-      note_html <- paste0(
-        "<div style='font-size: 0.9em; color: #555; margin: 10px 0;'>",
-        "<p><strong>Interpretation:</strong> ",
-        "IJ Factor = observed freq/expected freq. ",
-        "It represents the factor by which the probability changes when considering the association. ",
-        "A value of 2.0 means the probability is twice what would be expected under independence; ",
-        "0.5 means half. ",
-        "<strong>Empirical magnitude thresholds:</strong> &gt;2.0 (noteworthy positive), &lt;0.5 (noteworthy negative). ",
-        "<strong>Colour-coding:</strong> <span style='color: red;'>red</span> = noteworthy positive, ",
-        "<span style='color: blue;'>blue</span> = noteworthy negative.</p>",
-        "<p style='font-size: 0.85em; color: #666; margin-top: 5px;'><em>See: Good 1956; Agresti 2013.</em></p>",
-        "</div>"
-      )
-      self$results$ijNote$setContent(note_html)
-    },
-    
-    .populatePEMNote = function() {
-      note_html <- paste0(
-        "<div style='font-size: 0.9em; color: #555; margin: 10px 0;'>",
-        "<p><strong>Interpretation:</strong> ",
-        "PEM, equivalent to Sakoda's D Local × 100, ranges from -100% (maximum repulsion) through 0% (independence) to +100% (maximum attraction). ",
-        "Positive values indicate attraction, negative values indicate repulsion. ",
-        "<strong>Significance:</strong> Bootstrap confidence intervals not containing zero. ",
-        "<strong>Empirical magnitude thresholds:</strong> ",
-        "&lt;5% = Negligible, 5-10% = Weak, &ge;10% = Interesting/noteworthy, &ge;50% = Exceptional. ",
-        "<strong>Colour-coding:</strong> <span style='color: red;'>red</span> = significant positive, ",
-        "<span style='color: blue;'>blue</span> = significant negative.</p>",
-        "<p style='font-size: 0.85em; color: #666; margin-top: 5px;'><em>See: Sakoda 1981; Cibois 1993; Lefèvre & Champely 2009.</em></p>",
-        "</div>"
-      )
-      self$results$pemNote$setContent(note_html)
     },
     
     # -------------------------------------------------------------------------
@@ -1719,512 +1669,6 @@ chisqposthocClass <- R6::R6Class(
       # Set the state on the image so the render function can access it
       image <- self$results$pemPlot
       image$setState(plot_data)
-    },
-    
-    .populateMedianPolishNote = function() {
-      
-      # Get the stored thresholds
-      thresholds <- private$.lastMedPolishThresholds
-      
-      # ENHANCED: Assess outlier pattern (Priority 1 & 2)
-      excess_outliers <- thresholds$n_outliers - round(thresholds$expected_outliers)
-      
-      if (thresholds$n_outliers > thresholds$expected_outliers) {
-        
-        if (excess_outliers >= 2) {
-          outlier_interpretation <- sprintf(
-            "<strong>Outlier assessment:</strong> Found %d extreme values vs. ~%.1f expected under normality (expected = 0.007×%d + 0.4 ≈ %.1f; excess = %d − %.0f = %d). The excess suggests genuine extreme associations are present. Focus interpretation on the most extreme values (those furthest from the cutoffs), as these are most likely to represent true outliers rather than chance fluctuations.",
-            thresholds$n_outliers, thresholds$expected_outliers,
-            thresholds$n_cells, thresholds$expected_outliers,
-            thresholds$n_outliers, round(thresholds$expected_outliers), excess_outliers
-          )
-        } else {
-          outlier_interpretation <- sprintf(
-            "<strong>Outlier assessment:</strong> Found %d extreme value(s) vs. ~%.1f expected under normality (expected = 0.007×%d + 0.4 ≈ %.1f; excess = %d − %.0f = %d). This modest excess suggests caution: values barely exceeding the cutoffs may represent normal variation. Prioritise interpretation of the most extreme values.",
-            thresholds$n_outliers, thresholds$expected_outliers,
-            thresholds$n_cells, thresholds$expected_outliers,
-            thresholds$n_outliers, round(thresholds$expected_outliers), excess_outliers
-          )
-        }
-        
-      } else if (thresholds$n_outliers == round(thresholds$expected_outliers)) {
-        outlier_interpretation <- sprintf(
-          "<strong>Outlier assessment:</strong> Found %d extreme value(s), matching the ~%.1f expected under normality (expected = 0.007×%d + 0.4 ≈ %.1f; excess = 0). This pattern is consistent with normal sampling variation. Values flagged as extreme should be interpreted cautiously and may not represent genuine outliers.",
-          thresholds$n_outliers, thresholds$expected_outliers,
-          thresholds$n_cells, thresholds$expected_outliers
-        )
-      } else {
-        outlier_interpretation <- sprintf(
-          "<strong>Outlier assessment:</strong> Found %d extreme value(s) vs. ~%.1f expected under normality (expected = 0.007×%d + 0.4 ≈ %.1f; deficit = %.0f − %d = %d). The observed count is within or below expectation, suggesting the data conform well to the model.",
-          thresholds$n_outliers, thresholds$expected_outliers,
-          thresholds$n_cells, thresholds$expected_outliers,
-          round(thresholds$expected_outliers), thresholds$n_outliers,
-          round(thresholds$expected_outliers) - thresholds$n_outliers
-        )
-      }
-      
-      note_html <- paste0(
-        "<div style='font-size: 0.9em; color: #555; margin: 10px 0;'>",
-        "<p><strong>Interpretation:</strong> ",
-        "Median polish is applied to log-transformed counts to generate a resistant fit less affected by outliers. ",
-        "Pearson residuals are calculated as (Observed − RobustExpected)/sqrt(RobustExpected). ",
-        sprintf(
-          "Extreme values are identified using the fourth-spread rule: F<sub>L</sub>=%.3f, F<sub>U</sub>=%.3f, d<sub>F</sub>=%.3f. Lower cutoff = %.3f, Upper cutoff = %.3f. ",
-          thresholds$F_L, thresholds$F_U, thresholds$d_F,
-          thresholds$lower, thresholds$upper
-        ),
-        outlier_interpretation,
-        " <strong>Colour-coding:</strong> <span style='color: red;'>red</span> = extreme positive, ",
-        "<span style='color: blue;'>blue</span> = extreme negative.</p>",
-        "<p style='font-size: 0.85em; color: #666; margin-top: 5px;'><em>See: Mosteller & Parunak 1985; Simonoff 2003.</em></p>",
-        "</div>"
-      )
-      self$results$medpolishNote$setContent(note_html)
-    },
-    
-    .populateAdjMedianPolishNote = function() {
-      
-      # Get the stored thresholds (same as for simple median polish)
-      thresholds <- private$.lastMedPolishThresholds
-      
-      # ENHANCED: Assess outlier pattern (Priority 1 & 2)
-      excess_outliers <- thresholds$n_outliers - round(thresholds$expected_outliers)
-      
-      if (thresholds$n_outliers > thresholds$expected_outliers) {
-        
-        if (excess_outliers >= 2) {
-          outlier_interpretation <- sprintf(
-            "<strong>Outlier assessment:</strong> Found %d extreme values vs. ~%.1f expected under normality (expected = 0.007×%d + 0.4 ≈ %.1f; excess = %d − %.0f = %d). The excess suggests genuine extreme associations are present. Focus interpretation on the most extreme values (those furthest from the cutoffs), as these are most likely to represent true outliers rather than chance fluctuations.",
-            thresholds$n_outliers, thresholds$expected_outliers,
-            thresholds$n_cells, thresholds$expected_outliers,
-            thresholds$n_outliers, round(thresholds$expected_outliers), excess_outliers
-          )
-        } else {
-          outlier_interpretation <- sprintf(
-            "<strong>Outlier assessment:</strong> Found %d extreme value(s) vs. ~%.1f expected under normality (expected = 0.007×%d + 0.4 ≈ %.1f; excess = %d − %.0f = %d). This modest excess suggests caution: values barely exceeding the cutoffs may represent normal variation. Prioritise interpretation of the most extreme values.",
-            thresholds$n_outliers, thresholds$expected_outliers,
-            thresholds$n_cells, thresholds$expected_outliers,
-            thresholds$n_outliers, round(thresholds$expected_outliers), excess_outliers
-          )
-        }
-        
-      } else if (thresholds$n_outliers == round(thresholds$expected_outliers)) {
-        outlier_interpretation <- sprintf(
-          "<strong>Outlier assessment:</strong> Found %d extreme value(s), matching the ~%.1f expected under normality (expected = 0.007×%d + 0.4 ≈ %.1f; excess = 0). This pattern is consistent with normal sampling variation. Values flagged as extreme should be interpreted cautiously and may not represent genuine outliers.",
-          thresholds$n_outliers, thresholds$expected_outliers,
-          thresholds$n_cells, thresholds$expected_outliers
-        )
-      } else {
-        outlier_interpretation <- sprintf(
-          "<strong>Outlier assessment:</strong> Found %d extreme value(s) vs. ~%.1f expected under normality (expected = 0.007×%d + 0.4 ≈ %.1f; deficit = %.0f − %d = %d). The observed count is within or below expectation, suggesting the data conform well to the model.",
-          thresholds$n_outliers, thresholds$expected_outliers,
-          thresholds$n_cells, thresholds$expected_outliers,
-          round(thresholds$expected_outliers), thresholds$n_outliers,
-          round(thresholds$expected_outliers) - thresholds$n_outliers
-        )
-      }
-      
-      note_html <- paste0(
-        "<div style='font-size: 0.9em; color: #555; margin: 10px 0;'>",
-        "<p><strong>Interpretation:</strong> ",
-        "Median polish is applied to log-transformed counts to generate a resistant fit less affected by outliers. ",
-        "Pearson residuals are calculated as (Observed − RobustExpected)/sqrt(RobustExpected), then adjusted using Haberman's method: ",
-        "dividing by sqrt((1−row prop)×(1−col prop)) for each cell. ",
-        sprintf(
-          "Extreme values are identified using the fourth-spread rule: F<sub>L</sub>=%.3f, F<sub>U</sub>=%.3f, d<sub>F</sub>=%.3f. Lower cutoff = %.3f, Upper cutoff = %.3f. ",
-          thresholds$F_L, thresholds$F_U, thresholds$d_F,
-          thresholds$lower, thresholds$upper
-        ),
-        outlier_interpretation,
-        " <strong>Colour-coding:</strong> <span style='color: red;'>red</span> = extreme positive, ",
-        "<span style='color: blue;'>blue</span> = extreme negative.</p>",
-        "<p style='font-size: 0.85em; color: #666; margin-top: 5px;'><em>See: Mosteller & Parunak 1985.</em></p>",
-        "</div>"
-      )
-      self$results$adjmedpolishNote$setContent(note_html)
-    },
-    
-    
-    .populateReferences = function() {
-      
-      references_html <- paste0(
-        "<div style='font-size: 0.85em; color: #444; margin: 15px 0; line-height: 1.5;'>",
-        "<h3 style='color: #2874A6; margin-top: 0.5em; margin-bottom: 0.5em;'>References</h3>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Agresti, A. (2013). <em>Categorical Data Analysis</em> (3rd ed.). Wiley.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Alberti, G. (2024). <em>From Data to Insights. A Beginner's Guide to Cross-Tabulation Analysis</em>. Chapman & Hall.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Beasley, T. M., & Schumacker, R. E. (1995). Multiple regression approach to analyzing contingency tables: Post hoc and planned comparison procedures. <em>The Journal of Experimental Education</em>, 64(1), 79-93.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Beh, E. J., & Lombardo, R. (2021). <em>An Introduction to Correspondence Analysis</em>. John Wiley & Sons.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Cibois, P. (1993). Le PEM, pourcentage de l'écart maximum: Un indice de liaison entre modalités d'un tableau de contingence. <em>Bulletin de Methodologie Sociologique</em>, 40, 43-63.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Efron, B., & Tibshirani, R. J. (1993). <em>An Introduction to the Bootstrap</em>. Chapman & Hall/CRC.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Gambirasio, A. (2024). Dependence evaluator proportion: A measure for contingency table analysis. <em>OSF Preprints</em>. https://doi.org/10.31219/osf.io/s94zr [Preprint]</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Garcia-Perez, M. A., & Nunez-Anton, V. (2003). Cellwise residual analysis in two-way contingency tables. <em>Educational and Psychological Measurement</em>, 63(5), 825-839.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Good, I. J. (1956). On the Estimation of Small Frequencies in Contingency Tables. <em>Journal of the Royal Statistical Society. Series B (Methodological)</em>, 18(1), 113-124.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Haberman, S. J. (1973). The analysis of residuals in cross-classified tables. <em>Biometrics</em>, 29, 205-220.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Kroonenberg, P. M., & Lombardo, R. (1999). Nonsymmetric correspondence analysis: A tool for analysing contingency tables with a dependence structure. <em>Multivariate Behavioral Research</em>, 34(3), 367–396.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Lefèvre, B., & Champely, S. (2009). Méthodes statistiques globales et locales d'analyse d'un tableau de contingence par les tailles d'effet et leurs intervalles de confiance. <em>Bulletin de Methodologie Sociologique</em>, 103, 50-65.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Mirkin, B. (2001). Eleven ways to look at the chi-squared coefficient for contingency tables. <em>The American Statistician</em>, 55(2), 111-120.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Mirkin, B. (2023). A straightforward approach to chi-squared analysis of associations in contingency tables. In E. J. Beh, R. Bertault, P. J. F. Groenen, & Y. Takane (Eds.), <em>Analysis of Categorical Data from Historical Perspectives</em> (pp. 59-72). Springer Nature Singapore.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Mosteller, F., & Parunak, A. (1985). Identifying extreme cells in a sizable contingency table: Probabilistic and exploratory approaches. In D. C. Hoaglin, F. Mosteller, & J. W. Tukey (Eds.), <em>Exploring Data Tables, Trends, and Shapes</em> (pp. 189-224). Wiley.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Sakoda, J. M. (1981). A generalized index of dissimilarity. <em>Demography</em>, 18(2), 245–250.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Simonoff, J. S. (1988). Detecting outlying cells in two-way contingency tables via backwards-stepping. <em>Technometrics</em>, 30(3), 339-345.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Simonoff, J. S. (2003). <em>Analyzing Categorical Data</em>. Springer.</p>",
-        "</div>"
-      )
-      
-      self$results$legendNote$setContent(references_html)
-    },
-    
-    .populateSignificanceTables = function() {
-      
-      sig_pos_table <- self$results$sigPosTable
-      sig_neg_table <- self$results$sigNegTable
-      non_sig_table <- self$results$nonSigTable
-      
-      all_results <- list()
-      
-      has_statistical <- FALSE
-      has_empirical <- FALSE
-      has_extreme <- FALSE
-      
-      if (self$options$stdres && !is.null(private$.lastStdRes)) {
-        all_results <- c(all_results, 
-                         private$.extractSignificance(private$.lastStdRes, 'Std. Residual'))
-        has_statistical <- TRUE
-      }
-      
-      if (self$options$momcorrstdres && !is.null(private$.lastMomCorrStdRes)) {
-        all_results <- c(all_results, 
-                         private$.extractSignificance(private$.lastMomCorrStdRes, 'Mom. Corr. Std. Residual'))
-        has_statistical <- TRUE
-      }
-      
-      if (self$options$adjstdres && !is.null(private$.lastAdjStdRes)) {
-        all_results <- c(all_results, 
-                         private$.extractSignificance(private$.lastAdjStdRes, 'Adj. Std. Residual'))
-        has_statistical <- TRUE
-      }
-      
-      if (self$options$quetelet && !is.null(private$.lastQuetelet)) {
-        all_results <- c(all_results, 
-                         private$.extractSignificance(private$.lastQuetelet, 'Quetelet Index', 
-                                                      threshold = c(1.0, -0.50), use_empirical = TRUE))
-        has_empirical <- TRUE
-      }
-      
-      if (self$options$ij && !is.null(private$.lastIJ)) {
-        all_results <- c(all_results, 
-                         private$.extractSignificance(private$.lastIJ, 'IJ Factor', 
-                                                      threshold = c(2.0, 0.5), use_empirical = TRUE))
-        has_empirical <- TRUE
-      }
-      
-      if (self$options$pem && !is.null(private$.lastPEM)) {
-        all_results <- c(all_results, 
-                         private$.extractPEMSignificance(private$.lastPEM))
-        has_statistical <- TRUE
-      }
-      
-      if (self$options$medpolish && !is.null(private$.lastMedPolish)) {
-        all_results <- c(all_results, 
-                         private$.extractSignificanceFourthSpread(private$.lastMedPolish, 'Std. Med. Polish Residual'))
-        has_extreme <- TRUE
-      }
-      
-      if (self$options$adjmedpolish && !is.null(private$.lastAdjMedPolish)) {
-        all_results <- c(all_results, 
-                         private$.extractSignificanceFourthSpread(private$.lastAdjMedPolish, 'Adj. Std. Med. Polish Residual'))
-        has_extreme <- TRUE
-      }
-      
-      if (self$options$dep && !is.null(private$.lastDEP)) {
-        all_results <- c(all_results, 
-                         private$.extractDEPSignificance(private$.lastDEP))
-        has_statistical <- TRUE
-      }
-      
-      if (self$options$bsOutlier && !is.null(private$.lastBSOutlier)) {
-        all_results <- c(all_results, 
-                         private$.extractBSOutlierSignificance(private$.lastBSOutlier))
-        has_statistical <- TRUE
-      }
-      
-      terms <- c()
-      
-      if (has_statistical) terms <- c(terms, "Significant")
-      if (has_empirical) terms <- c(terms, "Noteworthy")
-      if (has_extreme) terms <- c(terms, "Extreme")
-      
-      combined_term <- paste(terms, collapse = "/")
-      
-      pos_term <- paste(combined_term, "Positive Associations")
-      neg_term <- paste(combined_term, "Negative Associations")
-      non_term <- paste0("Non-", combined_term, " Associations")
-      
-      sig_pos_table$setTitle(pos_term)
-      sig_neg_table$setTitle(neg_term)
-      non_sig_table$setTitle(non_term)
-      
-      sig_pos <- Filter(function(x) x$significant && x$direction == 'positive', all_results)
-      sig_neg <- Filter(function(x) x$significant && x$direction == 'negative', all_results)
-      non_sig <- Filter(function(x) !x$significant, all_results)
-      
-      # For positive associations
-      if (length(sig_pos) > 0) {
-        for (i in seq_along(sig_pos)) {
-          sig_pos_table$addRow(rowKey = i, values = list(
-            rowCat = sig_pos[[i]]$row,
-            colCat = sig_pos[[i]]$col,
-            metric = sig_pos[[i]]$metric,
-            value = paste0("<span style='display: block; text-align: right;'>", 
-                           sprintf("%.3f", sig_pos[[i]]$value), 
-                           "</span>")
-          ))
-        }
-      }
-      
-      # For negative associations
-      if (length(sig_neg) > 0) {
-        for (i in seq_along(sig_neg)) {
-          sig_neg_table$addRow(rowKey = i, values = list(
-            rowCat = sig_neg[[i]]$row,
-            colCat = sig_neg[[i]]$col,
-            metric = sig_neg[[i]]$metric,
-            value = paste0("<span style='display: block; text-align: right;'>", 
-                           sprintf("%.3f", sig_neg[[i]]$value), 
-                           "</span>")
-          ))
-        }
-      }
-      
-      # For non-significant associations
-      if (length(non_sig) > 0) {
-        for (i in seq_along(non_sig)) {
-          non_sig_table$addRow(rowKey = i, values = list(
-            rowCat = non_sig[[i]]$row,
-            colCat = non_sig[[i]]$col,
-            metric = non_sig[[i]]$metric,
-            value = paste0("<span style='display: block; text-align: right;'>", 
-                           sprintf("%.3f", non_sig[[i]]$value), 
-                           "</span>")
-          ))
-        }
-      }
-    },
-    
-    .extractSignificance = function(metric_matrix, metric_label, threshold = 1.96, use_empirical = FALSE) {
-      
-      I <- nrow(metric_matrix)
-      J <- ncol(metric_matrix)
-      row_names <- rownames(metric_matrix)
-      col_names <- colnames(metric_matrix)
-      
-      if (!use_empirical && !is.null(threshold) && 
-          metric_label %in% c('Std. Residual', 'Mom. Corr. Std. Residual', 'Adj. Std. Residual') &&
-          self$options$sidakCorrection) {
-        k <- I * J
-        alpha <- 0.05
-        alpha_corrected <- 1 - (1 - alpha)^(1/k)
-        threshold <- qnorm(1 - alpha_corrected/2)
-      }
-      
-      results <- list()
-      
-      for (i in 1:I) {
-        for (j in 1:J) {
-          value <- metric_matrix[i, j]
-          
-          if (is.null(threshold)) {
-            sig <- FALSE
-            dir <- if (value > 0) 'positive' else 'negative'
-          } else if (use_empirical) {
-            positive_threshold <- threshold[1]
-            negative_threshold <- threshold[2]
-            
-            if (value > positive_threshold) {
-              sig <- TRUE
-              dir <- 'positive'
-            } else if (value < negative_threshold) {
-              sig <- TRUE
-              dir <- 'negative'
-            } else {
-              sig <- FALSE
-              dir <- if (value > 0) 'positive' else 'negative'
-            }
-          } else {
-            sig <- abs(value) > threshold
-            dir <- if (value > 0) 'positive' else 'negative'
-          }
-          
-          results[[length(results) + 1]] <- list(
-            row = row_names[i],
-            col = col_names[j],
-            metric = metric_label,
-            value = value,
-            significant = sig,
-            direction = dir
-          )
-        }
-      }
-      
-      return(results)
-    },
-    .extractSignificanceFourthSpread = function(metric_matrix, metric_label) {
-      
-      I <- nrow(metric_matrix)
-      J <- ncol(metric_matrix)
-      row_names <- rownames(metric_matrix)
-      col_names <- colnames(metric_matrix)
-      
-      # Compute fourth-spread thresholds
-      all_values <- as.vector(metric_matrix)
-      F_U <- quantile(all_values, 0.75)
-      F_L <- quantile(all_values, 0.25)
-      d_F <- F_U - F_L
-      
-      lower_cutoff <- F_L - 1.5 * d_F
-      upper_cutoff <- F_U + 1.5 * d_F
-      
-      results <- list()
-      
-      for (i in 1:I) {
-        for (j in 1:J) {
-          value <- metric_matrix[i, j]
-          
-          if (value > upper_cutoff) {
-            sig <- TRUE
-            dir <- 'positive'
-          } else if (value < lower_cutoff) {
-            sig <- TRUE
-            dir <- 'negative'
-          } else {
-            sig <- FALSE
-            dir <- if (value > 0) 'positive' else 'negative'
-          }
-          
-          results[[length(results) + 1]] <- list(
-            row = row_names[i],
-            col = col_names[j],
-            metric = metric_label,
-            value = value,
-            significant = sig,
-            direction = dir
-          )
-        }
-      }
-      
-      return(results)
-    },
-    
-    .extractPEMSignificance = function(pem_list) {
-      
-      pem <- pem_list$pem
-      ci_lower <- pem_list$ci_lower
-      ci_upper <- pem_list$ci_upper
-      
-      I <- nrow(pem)
-      J <- ncol(pem)
-      row_names <- rownames(pem)
-      col_names <- colnames(pem)
-      
-      results <- list()
-      
-      for (i in 1:I) {
-        for (j in 1:J) {
-          value <- pem[i, j]
-          ci_low <- ci_lower[i, j]
-          ci_up <- ci_upper[i, j]
-          
-          sig <- (ci_low > 0) || (ci_up < 0)
-          dir <- if (value > 0) 'positive' else 'negative'
-          
-          results[[length(results) + 1]] <- list(
-            row = row_names[i],
-            col = col_names[j],
-            metric = 'PEM',
-            value = value,
-            significant = sig,
-            direction = dir
-          )
-        }
-      }
-      
-      return(results)
-    },
-    
-    .extractDEPSignificance = function(dep_list) {
-      
-      results <- list()
-      
-      for (result in dep_list) {
-        if (!is.na(result$dep)) {
-          dir <- if (result$dep > 0) 'positive' else 'negative'
-          
-          results[[length(results) + 1]] <- list(
-            row = result$row,
-            col = result$outcome,
-            metric = 'DEP',
-            value = result$dep,
-            significant = result$significant,
-            direction = dir
-          )
-        }
-      }
-      
-      return(results)
-    },
-    
-    .extractBSOutlierSignificance = function(bsoutlier_list) {
-      
-      del_res_matrix <- bsoutlier_list$del_res_matrix
-      detection_matrix <- bsoutlier_list$detection_matrix
-      
-      row_names <- rownames(del_res_matrix)
-      col_names <- colnames(del_res_matrix)
-      
-      I <- nrow(del_res_matrix)
-      J <- ncol(del_res_matrix)
-      
-      results <- list()
-      
-      for (i in 1:I) {
-        for (j in 1:J) {
-          value <- del_res_matrix[i, j]
-          
-          if (!is.na(value)) {
-            is_detected <- detection_matrix[i, j]
-            dir <- if (value > 0) 'positive' else 'negative'
-            
-            results[[length(results) + 1]] <- list(
-              row = row_names[i],
-              col = col_names[j],
-              metric = 'BS Outlier',
-              value = value,
-              significant = is_detected,
-              direction = dir
-            )
-          }
-        }
-      }
-      
-      return(results)
     },
     
     .populateMethodInfo = function() {
@@ -2418,7 +1862,7 @@ chisqposthocClass <- R6::R6Class(
       if (self$options$dep) {
         html <- paste0(html, "
           <h3 style='color: #2874A6; margin-top: 1.5em;'>Dependence Evaluator Proportion (DEP)</h3>
-          <p>The Dependence Evaluator Proportion (DEP) measures, for each row category, whether the probability of a designated outcome (as opposed to other outcomes) is higher or lower than in all other rows combined. Unlike symmetric post-hoc measures that treat all cells equally, DEP explicitly models the column variable as the <strong>dependent variable</strong> and requires selecting one column category as the <strong>outcome of interest</strong>.</p>
+          <p>The Dependence Evaluator Proportion (DEP) measures, for each row category, whether the probability of a designated outcome (as opposed to other outcomes) is higher or lower than in all other rows combined. Unlike symmetric post-hoc measures that treat all cells equally, DEP is <strong>asymmetric</strong>: in this module, the row variable is treated as the <strong>independent variable</strong> (predictor), whilst the column variable is treated as the <strong>dependent variable</strong> (outcome). The user must select one column category as the <strong>outcome of interest</strong>, and DEP then evaluates whether each row category increases or decreases the probability of that outcome.</p>
           
           <p><strong>Calculation:</strong> For each row category <i>i</i>, DEP computes the probability of the designated outcome (versus all other column categories) within that row, and compares it to the same probability across all other rows combined. Specifically, it calculates the difference between P(Outcome | Row = <i>i</i>) and P(Outcome | Row ≠ <i>i</i>), normalised by their sum:</p>
           
@@ -2765,8 +2209,16 @@ chisqposthocClass <- R6::R6Class(
     .lastGKResRow = NULL,
     .lastBSOutlier = NULL,
     
+    # New fields for table stability
+    .rowLevels = NULL,
+    .colLevels = NULL,
+    .I = NULL,
+    .J = NULL,
+    .defaultDepOutcome = NULL,
+    
     # Cache control fields
     .lastDataHash = NULL,
-    .lastBootstrapOptions = NULL
+    .lastBootstrapOptions = NULL,
+    .confLevelProp = NULL
   )
 )

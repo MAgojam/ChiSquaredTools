@@ -10,6 +10,19 @@ items:
       clearWith:
         - rows
         - cols
+        - counts
+        - stdres
+        - momcorrstdres
+        - adjstdres
+        - quetelet
+        - ij
+        - bsOutlier
+        - pem
+        - medpolish
+        - adjmedpolish
+        - gkres
+        - dep
+        - sidakCorrection
       columns: []
 
     - name: stdresTable
@@ -20,12 +33,10 @@ items:
         - rows
         - cols
         - sidakCorrection
+        - stdres
       columns: []
-
-    - name: stdresNote
-      title: Interpretation
-      type: Html
-      visible: (stdres)
+      refs:
+       - agresti2013
 
     - name: momcorrstdresTable
       title: Moment-Corrected Standardised Residuals
@@ -35,12 +46,10 @@ items:
         - rows
         - cols
         - sidakCorrection
+        - momcorrstdres
       columns: []
-
-    - name: momcorrstdresNote
-      title: Interpretation
-      type: Html
-      visible: (momcorrstdres)
+      refs:
+       - garciaperez2003
 
     - name: adjstdresTable
       title: Adjusted Standardised Residuals
@@ -50,12 +59,10 @@ items:
         - rows
         - cols
         - sidakCorrection
+        - adjstdres
       columns: []
-
-    - name: adjstdresNote
-      title: Interpretation
-      type: Html
-      visible: (adjstdres)
+      refs:
+       - haberman1973
 
     - name: queteletTable
       title: Quetelet Index
@@ -64,12 +71,11 @@ items:
       clearWith:
         - rows
         - cols
+        - quetelet
       columns: []
-
-    - name: queteletNote
-      title: Interpretation
-      type: Html
-      visible: (quetelet)
+      refs:
+       - mirkin2001
+       - mirkin2023
 
     - name: ijTable
       title: IJ Association Factor
@@ -78,12 +84,11 @@ items:
       clearWith:
         - rows
         - cols
+        - ij
       columns: []
-
-    - name: ijNote
-      title: Interpretation
-      type: Html
-      visible: (ij)
+      refs:
+       - good1956
+       - agresti2013
 
     - name: bsOutlierMatrixTable
       title: Deleted Residuals (Backwards-Stepping)
@@ -94,6 +99,8 @@ items:
         - cols
         - bsKmax
       columns: []
+      refs:
+       - simonoff1988
 
     - name: bsOutlierDetailTable
       title: Backwards-Stepping Identified Cells
@@ -120,11 +127,6 @@ items:
           title: 'Detected'
           type: text
 
-    - name: bsOutlierNote
-      title: Interpretation
-      type: Html
-      visible: (bsOutlier)
-
     - name: pemTable
       title: PEM with Confidence Intervals
       type: Table
@@ -135,11 +137,11 @@ items:
         - confLevel
         - bootstrapReps
       columns: []
-
-    - name: pemNote
-      title: Interpretation
-      type: Html
-      visible: (pem)
+      refs:
+       - cibois1993
+       - lefevrechampely2009
+       - sakoda1981
+       
 
     - name: pemPlot
       title: PEM Forest Plot
@@ -164,12 +166,11 @@ items:
       clearWith:
         - rows
         - cols
+        - medpolish
       columns: []
-
-    - name: medpolishNote
-      title: Interpretation
-      type: Html
-      visible: (medpolish)
+      refs:
+       - mostellerparunak1985
+       - simonoff2003
 
     - name: adjmedpolishTable
       title: Adjusted Standardised Median Polish Residuals
@@ -178,12 +179,10 @@ items:
       clearWith:
         - rows
         - cols
+        - adjmedpolish
       columns: []
-
-    - name: adjmedpolishNote
-      title: Interpretation
-      type: Html
-      visible: (adjmedpolish)
+      refs:
+       - mostellerparunak1985
 
     - name: gkresColTable
       title: Goodman-Kruskal Residuals (Columns as Predictor)
@@ -193,6 +192,8 @@ items:
         - rows
         - cols
       columns: []
+      refs:
+      - kroonenberglombardo1999
 
     - name: gkresRowTable
       title: Goodman-Kruskal Residuals (Rows as Predictor)
@@ -202,11 +203,8 @@ items:
         - rows
         - cols
       columns: []
-
-    - name: gkresNote
-      title: Interpretation
-      type: Html
-      visible: (gkres)
+      refs:
+      - kroonenberglombardo1999
 
     - name: depTable
       title: Dependence Evaluator Proportion (DEP)
@@ -235,11 +233,8 @@ items:
         - name: significance
           title: 'Significance'
           type: text
-
-    - name: depNote
-      title: Interpretation
-      type: Html
-      visible: (dep)
+      refs:
+       - gambirasio2024
 
     - name: depPlot
       title: DEP Forest Plot
@@ -253,72 +248,6 @@ items:
         - rows
         - cols
         - depOutcome
-
-    - name: sigPosTable
-      title: Significant Positive Associations
-      type: Table
-      visible: (showSignificanceTables)
-      clearWith:
-        - rows
-        - cols
-        - metrics
-      columns:
-        - name: rowCat
-          title: 'Row'
-          type: text
-        - name: colCat
-          title: 'Column'
-          type: text
-        - name: metric
-          title: 'Metric'
-          type: text
-        - name: value
-          title: 'Value'
-          type: text
-
-    - name: sigNegTable
-      title: Significant Negative Associations
-      type: Table
-      visible: (showSignificanceTables)
-      clearWith:
-        - rows
-        - cols
-        - metrics
-      columns:
-        - name: rowCat
-          title: 'Row'
-          type: text
-        - name: colCat
-          title: 'Column'
-          type: text
-        - name: metric
-          title: 'Metric'
-          type: text
-        - name: value
-          title: 'Value'
-          type: text
-
-    - name: nonSigTable
-      title: Non-Significant Associations
-      type: Table
-      visible: (showSignificanceTables)
-      clearWith:
-        - rows
-        - cols
-        - metrics
-      columns:
-        - name: rowCat
-          title: 'Row'
-          type: text
-        - name: colCat
-          title: 'Column'
-          type: text
-        - name: metric
-          title: 'Metric'
-          type: text
-        - name: value
-          title: 'Value'
-          type: text
 
     - name: methodInfo
       title: Method Details
@@ -338,8 +267,5 @@ items:
         - adjmedpolish
         - gkres
         - dep
-
-    - name: legendNote
-      title: References
-      type: Html
+        - showMethodInfo
 ...

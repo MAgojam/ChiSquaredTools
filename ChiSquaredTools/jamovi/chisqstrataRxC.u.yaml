@@ -56,8 +56,6 @@ children:
         label: Visual Summaries
         children:
           - type: CheckBox
-            name: showResiduals
-          - type: CheckBox
             name: showForestPlot
           - type: CheckBox
             name: strataOrdered
@@ -75,9 +73,5 @@ children:
       - type: Label
         label: Interpretive Guides
         children:
-          - type: CheckBox
-            name: showInterpretation
-          - type: CheckBox
-            name: showDiagnosticSummary
           - type: CheckBox
             name: showMethodInfo

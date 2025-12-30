@@ -11,13 +11,10 @@ chisqstrataRxCOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Cl
             strata = NULL,
             counts = NULL,
             nBootstrap = 1000,
-            showResiduals = FALSE,
             showForestPlot = TRUE,
             showDiagnosticTree = TRUE,
             strataOrdered = FALSE,
             showTrajectoryPlot = TRUE,
-            showInterpretation = TRUE,
-            showDiagnosticSummary = TRUE,
             showMethodInfo = FALSE, ...) {
 
             super$initialize(
@@ -61,10 +58,6 @@ chisqstrataRxCOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Cl
                 default=1000,
                 min=100,
                 max=10000)
-            private$..showResiduals <- jmvcore::OptionBool$new(
-                "showResiduals",
-                showResiduals,
-                default=FALSE)
             private$..showForestPlot <- jmvcore::OptionBool$new(
                 "showForestPlot",
                 showForestPlot,
@@ -81,14 +74,6 @@ chisqstrataRxCOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Cl
                 "showTrajectoryPlot",
                 showTrajectoryPlot,
                 default=TRUE)
-            private$..showInterpretation <- jmvcore::OptionBool$new(
-                "showInterpretation",
-                showInterpretation,
-                default=TRUE)
-            private$..showDiagnosticSummary <- jmvcore::OptionBool$new(
-                "showDiagnosticSummary",
-                showDiagnosticSummary,
-                default=TRUE)
             private$..showMethodInfo <- jmvcore::OptionBool$new(
                 "showMethodInfo",
                 showMethodInfo,
@@ -99,13 +84,10 @@ chisqstrataRxCOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Cl
             self$.addOption(private$..strata)
             self$.addOption(private$..counts)
             self$.addOption(private$..nBootstrap)
-            self$.addOption(private$..showResiduals)
             self$.addOption(private$..showForestPlot)
             self$.addOption(private$..showDiagnosticTree)
             self$.addOption(private$..strataOrdered)
             self$.addOption(private$..showTrajectoryPlot)
-            self$.addOption(private$..showInterpretation)
-            self$.addOption(private$..showDiagnosticSummary)
             self$.addOption(private$..showMethodInfo)
         }),
     active = list(
@@ -114,13 +96,10 @@ chisqstrataRxCOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Cl
         strata = function() private$..strata$value,
         counts = function() private$..counts$value,
         nBootstrap = function() private$..nBootstrap$value,
-        showResiduals = function() private$..showResiduals$value,
         showForestPlot = function() private$..showForestPlot$value,
         showDiagnosticTree = function() private$..showDiagnosticTree$value,
         strataOrdered = function() private$..strataOrdered$value,
         showTrajectoryPlot = function() private$..showTrajectoryPlot$value,
-        showInterpretation = function() private$..showInterpretation$value,
-        showDiagnosticSummary = function() private$..showDiagnosticSummary$value,
         showMethodInfo = function() private$..showMethodInfo$value),
     private = list(
         ..rows = NA,
@@ -128,13 +107,10 @@ chisqstrataRxCOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Cl
         ..strata = NA,
         ..counts = NA,
         ..nBootstrap = NA,
-        ..showResiduals = NA,
         ..showForestPlot = NA,
         ..showDiagnosticTree = NA,
         ..strataOrdered = NA,
         ..showTrajectoryPlot = NA,
-        ..showInterpretation = NA,
-        ..showDiagnosticSummary = NA,
         ..showMethodInfo = NA)
 )
 
@@ -143,19 +119,13 @@ chisqstrataRxCResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Cl
     inherit = jmvcore::Group,
     active = list(
         partialTablesGroup = function() private$.items[["partialTablesGroup"]],
-        marginalTableHeader = function() private$.items[["marginalTableHeader"]],
         marginalTable = function() private$.items[["marginalTable"]],
-        analysisResultsHeader = function() private$.items[["analysisResultsHeader"]],
         stratumResultsTable = function() private$.items[["stratumResultsTable"]],
+        residualsGroup = function() private$.items[["residualsGroup"]],
         cmhTestTable = function() private$.items[["cmhTestTable"]],
         homogeneityTable = function() private$.items[["homogeneityTable"]],
         summaryMeasureTable = function() private$.items[["summaryMeasureTable"]],
-        residualsHeader = function() private$.items[["residualsHeader"]],
-        residualsGroup = function() private$.items[["residualsGroup"]],
-        residualsNote = function() private$.items[["residualsNote"]],
-        interpretationGuideHeader = function() private$.items[["interpretationGuideHeader"]],
-        interpretationNote = function() private$.items[["interpretationNote"]],
-        diagnosticSummary = function() private$.items[["diagnosticSummary"]],
+        interpretationTable = function() private$.items[["interpretationTable"]],
         forestPlot = function() private$.items[["forestPlot"]],
         trajectoryPlot = function() private$.items[["trajectoryPlot"]],
         diagnosticTree = function() private$.items[["diagnosticTree"]],
@@ -171,7 +141,7 @@ chisqstrataRxCResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Cl
             self$add(jmvcore::Array$new(
                 options=options,
                 name="partialTablesGroup",
-                title="Partial Tables (Strata)",
+                title="",
                 template=jmvcore::Table$new(
                     options=options,
                     title="Partial Table",
@@ -181,25 +151,16 @@ chisqstrataRxCResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Cl
                     "cols",
                     "strata",
                     "counts")))
-            self$add(jmvcore::Html$new(
-                options=options,
-                name="marginalTableHeader",
-                title="",
-                visible=TRUE))
             self$add(jmvcore::Table$new(
                 options=options,
                 name="marginalTable",
+                title="Marginal Table (collapsed across strata)",
                 clearWith=list(
                     "rows",
                     "cols",
                     "strata",
                     "counts"),
                 columns=list()))
-            self$add(jmvcore::Html$new(
-                options=options,
-                name="analysisResultsHeader",
-                title="",
-                visible=TRUE))
             self$add(jmvcore::Table$new(
                 options=options,
                 name="stratumResultsTable",
@@ -249,7 +210,27 @@ chisqstrataRxCResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Cl
                         `name`="ciUpper", 
                         `title`="Upper", 
                         `superTitle`="95% CI", 
-                        `type`="number"))))
+                        `type`="number")),
+                refs=list(
+                    "berry2018",
+                    "ott1992",
+                    "reynolds1977")))
+            self$add(jmvcore::Array$new(
+                options=options,
+                name="residualsGroup",
+                title="",
+                visible=TRUE,
+                template=jmvcore::Table$new(
+                    options=options,
+                    title="Residuals",
+                    columns=list()),
+                clearWith=list(
+                    "rows",
+                    "cols",
+                    "strata",
+                    "counts"),
+                refs=list(
+                    "haberman1973")))
             self$add(jmvcore::Table$new(
                 options=options,
                 name="cmhTestTable",
@@ -276,7 +257,9 @@ chisqstrataRxCResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Cl
                         `name`="pvalue", 
                         `title`="p", 
                         `type`="number", 
-                        `format`="zto,pvalue"))))
+                        `format`="zto,pvalue")),
+                refs=list(
+                    "azen2021")))
             self$add(jmvcore::Table$new(
                 options=options,
                 name="homogeneityTable",
@@ -303,7 +286,9 @@ chisqstrataRxCResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Cl
                         `name`="pvalue", 
                         `title`="p", 
                         `type`="number", 
-                        `format`="zto,pvalue"))))
+                        `format`="zto,pvalue")),
+                refs=list(
+                    "azen2021")))
             self$add(jmvcore::Table$new(
                 options=options,
                 name="summaryMeasureTable",
@@ -332,56 +317,29 @@ chisqstrataRxCResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Cl
                         `name`="ciUpper", 
                         `title`="Upper", 
                         `superTitle`="95% CI", 
-                        `type`="number"))))
-            self$add(jmvcore::Html$new(
+                        `type`="number")),
+                refs=list(
+                    "berry2018",
+                    "blalock1979",
+                    "reynolds1977")))
+            self$add(jmvcore::Table$new(
                 options=options,
-                name="residualsHeader",
-                title="",
-                visible="(showResiduals)"))
-            self$add(jmvcore::Array$new(
-                options=options,
-                name="residualsGroup",
-                title="",
-                visible="(showResiduals)",
-                template=jmvcore::Table$new(
-                    options=options,
-                    title="Residuals",
-                    columns=list()),
+                name="interpretationTable",
+                title="Interpretation Summary",
                 clearWith=list(
                     "rows",
                     "cols",
                     "strata",
-                    "counts")))
-            self$add(jmvcore::Html$new(
-                options=options,
-                name="residualsNote",
-                title="",
-                visible="(showResiduals)"))
-            self$add(jmvcore::Html$new(
-                options=options,
-                name="interpretationGuideHeader",
-                title="",
-                visible="(showInterpretation)"))
-            self$add(jmvcore::Html$new(
-                options=options,
-                name="interpretationNote",
-                title="Interpretation",
-                visible="(showInterpretation)",
-                clearWith=list(
-                    "rows",
-                    "cols",
-                    "strata",
-                    "counts")))
-            self$add(jmvcore::Html$new(
-                options=options,
-                name="diagnosticSummary",
-                title="Diagnostic Summary",
-                visible="(showDiagnosticSummary)",
-                clearWith=list(
-                    "rows",
-                    "cols",
-                    "strata",
-                    "counts")))
+                    "counts"),
+                columns=list(
+                    list(
+                        `name`="topic", 
+                        `title`="Aspect", 
+                        `type`="text"),
+                    list(
+                        `name`="result", 
+                        `title`="Result", 
+                        `type`="text"))))
             self$add(jmvcore::Image$new(
                 options=options,
                 name="forestPlot",
@@ -519,10 +477,6 @@ chisqstrataRxCBase <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class
 #'   case).
 #' @param nBootstrap number of bootstrap replicates for computing confidence
 #'   intervals of V corrected (default: 1000)
-#' @param showResiduals TRUE or FALSE (default: FALSE), display adjusted
-#'   standardised  residuals for each partial table. Residuals exceeding ±1.96
-#'   (highlighted) indicate cells contributing significantly to  the chi-squared
-#'   statistic at alpha = 0.05.
 #' @param showForestPlot TRUE or FALSE (default: TRUE), display a forest plot
 #'   showing stratum-specific V corrected with 95\% confidence intervals and the
 #'   weighted average.
@@ -534,29 +488,18 @@ chisqstrataRxCBase <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class
 #' @param showTrajectoryPlot TRUE or FALSE (default: TRUE), display a V
 #'   corrected trajectory plot when the stratifying variable is marked as
 #'   ordered.
-#' @param showInterpretation TRUE or FALSE (default: TRUE), display the
-#'   detailed interpretation guide based on the pattern of test results.
-#' @param showDiagnosticSummary TRUE or FALSE (default: TRUE), display a
-#'   narrative diagnostic summary that explains the identified scenario and its
-#'   implications.
 #' @param showMethodInfo TRUE or FALSE (default: FALSE), display detailed
 #'   methodological  explanations for all tests performed.
 #' @return A results object containing:
 #' \tabular{llllll}{
 #'   \code{results$partialTablesGroup} \tab \tab \tab \tab \tab an array of tables \cr
-#'   \code{results$marginalTableHeader} \tab \tab \tab \tab \tab a html \cr
 #'   \code{results$marginalTable} \tab \tab \tab \tab \tab a table \cr
-#'   \code{results$analysisResultsHeader} \tab \tab \tab \tab \tab a html \cr
 #'   \code{results$stratumResultsTable} \tab \tab \tab \tab \tab a table \cr
+#'   \code{results$residualsGroup} \tab \tab \tab \tab \tab an array of tables \cr
 #'   \code{results$cmhTestTable} \tab \tab \tab \tab \tab a table \cr
 #'   \code{results$homogeneityTable} \tab \tab \tab \tab \tab a table \cr
 #'   \code{results$summaryMeasureTable} \tab \tab \tab \tab \tab a table \cr
-#'   \code{results$residualsHeader} \tab \tab \tab \tab \tab a html \cr
-#'   \code{results$residualsGroup} \tab \tab \tab \tab \tab an array of tables \cr
-#'   \code{results$residualsNote} \tab \tab \tab \tab \tab a html \cr
-#'   \code{results$interpretationGuideHeader} \tab \tab \tab \tab \tab a html \cr
-#'   \code{results$interpretationNote} \tab \tab \tab \tab \tab a html \cr
-#'   \code{results$diagnosticSummary} \tab \tab \tab \tab \tab a html \cr
+#'   \code{results$interpretationTable} \tab \tab \tab \tab \tab a table \cr
 #'   \code{results$forestPlot} \tab \tab \tab \tab \tab an image \cr
 #'   \code{results$trajectoryPlot} \tab \tab \tab \tab \tab an image \cr
 #'   \code{results$diagnosticTree} \tab \tab \tab \tab \tab an image \cr
@@ -578,13 +521,10 @@ chisqstrataRxC <- function(
     strata,
     counts,
     nBootstrap = 1000,
-    showResiduals = FALSE,
     showForestPlot = TRUE,
     showDiagnosticTree = TRUE,
     strataOrdered = FALSE,
     showTrajectoryPlot = TRUE,
-    showInterpretation = TRUE,
-    showDiagnosticSummary = TRUE,
     showMethodInfo = FALSE) {
 
     if ( ! requireNamespace("jmvcore", quietly=TRUE))
@@ -612,13 +552,10 @@ chisqstrataRxC <- function(
         strata = strata,
         counts = counts,
         nBootstrap = nBootstrap,
-        showResiduals = showResiduals,
         showForestPlot = showForestPlot,
         showDiagnosticTree = showDiagnosticTree,
         strataOrdered = strataOrdered,
         showTrajectoryPlot = showTrajectoryPlot,
-        showInterpretation = showInterpretation,
-        showDiagnosticSummary = showDiagnosticSummary,
         showMethodInfo = showMethodInfo)
 
     analysis <- chisqstrataRxCClass$new(

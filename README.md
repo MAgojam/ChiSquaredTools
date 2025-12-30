@@ -8,7 +8,7 @@ ChiSquaredTools provides a point-and-click interface for contingency table analy
 
 ## Features
 
-The module includes six analytical facilities accessible from the **Chi² Tools** menu in jamovi:
+The module includes seven analytical facilities accessible from the **Chi² Tools** menu in jamovi:
 
 ### 1. Test of Independence
 Chi-squared test of independence with multiple testing methods:
@@ -18,14 +18,7 @@ Chi-squared test of independence with multiple testing methods:
 - Monte Carlo test with Phipson & Smyth (2010) p-value computation
 - M test (maximum adjusted residual method)
 
-### 2. Association & Effect Sizes
-Over 20 association measures organised by statistical foundation:
-- Chi-squared-based measures (Cramér's V, Contingency Coefficient, etc.)
-- Margin-free measures (Yule's Q, Odds Ratio, etc.)
-- Proportional Reduction in Error (PRE) measures (Lambda, Tau, Uncertainty Coefficient, etc.)
-- Bootstrap confidence intervals for selected measures
-
-### 3. Post-Hoc Analysis
+### 2. Post-Hoc Analysis
 Cell-level diagnostic metrics including:
 - Standardised and adjusted standardised residuals
 - Moment-corrected standardised residuals
@@ -36,32 +29,48 @@ Cell-level diagnostic metrics including:
 - Goodman-Kruskal residuals
 - Difference in Estimated Proportions (DEP)
 
-### 4. Row/Column Clustering
+### 3. Association & Effect Sizes
+Over 20 association measures organised by statistical foundation:
+- **Chi-squared-based measures**: Phi (with signed and corrected variants), Cole's C7, Zysno's Phi, Contingency Coefficient C (with adjusted and corrected variants), Cramér's V (with corrected, standardised, and bias-corrected variants), Cohen's w
+- **Distance-based measures**: ŵ (W-hat) and Sakoda's D (with corrected variants and local cell-level values)
+- **Margin-free measures** (2×2 tables): Odds Ratio, Yule's Q, Yule's Y
+- **Proportional Reduction in Error (PRE) measures**: Goodman-Kruskal Lambda (row, column, symmetric; with corrected variants), Goodman-Kruskal Tau (row, column)
+- Bootstrap confidence intervals for selected measures
+
+### 4. Power Analysis
+Statistical power tools for study planning:
+- A priori sample size determination
+- Post-hoc power calculation
+- Sensitivity analysis
+
+### 5. Row/Column Clustering
 Hierarchical clustering analysis using:
 - Ward's method with chi-squared distance (Greenacre, 2017)
 - Significance testing
 - Dendrogram visualisation
 
-### 5. Stratified Analysis (2×2×K)
+### 6. Stratified Analysis (2×2×K)
 For 2×2 tables across K strata:
 - Cochran-Mantel-Haenszel test for conditional independence
 - Mantel-Haenszel pooled odds ratio with confidence intervals
 - Breslow-Day and Tarone tests for homogeneity of odds ratios
 - Stratum-specific statistics and forest plots
 
-### 6. Stratified Analysis (R×C×K)
+### 7. Stratified Analysis (R×C×K)
 For general R×C tables across K strata:
 - Generalised Cochran-Mantel-Haenszel test
 - Log-linear homogeneity test
 - Stratum-specific chi-squared statistics
+- Trajectory plots
 
 ## Educational Features
 
 Each facility includes:
 - **Method explanations**: Toggleable descriptions with rationale, formulas, and usage guidance
 - **Automatic highlighting**: Significant or noteworthy results are colour-coded for easy identification
+- **Diagnostic decision trees**: Guidance for choosing appropriate methods
 - **Academic citations**: Proper references to statistical literature throughout
-- **Interpretation guidance**: Decision support for choosing appropriate methods
+- **Interpretation guidance**: Decision support for effect size interpretation
 
 ## Installation
 

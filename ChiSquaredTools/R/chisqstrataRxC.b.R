@@ -31,6 +31,41 @@ chisqstrataRxCClass <- R6::R6Class(
         return()
       }
       
+      # ═══════════════════════════════════════════════════════════════════════════
+      # 1b. Check if this is a display-only option change
+      # ═══════════════════════════════════════════════════════════════════════════
+      
+      # Display-only options that should not trigger recomputation
+      displayOnlyOptions <- c("showMethodInfo", "showForestPlot", "showDiagnosticTree", 
+                              "showTrajectoryPlot")
+      
+      # Create signature of data-affecting options only
+      dataSignature <- paste(
+        self$options$rows,
+        self$options$cols, 
+        self$options$strata,
+        self$options$counts,
+        self$options$nBootstrap,
+        self$options$strataOrdered,
+        sep = "|"
+      )
+      
+      # If we have cached results AND the data signature matches, 
+      # only update display elements without repopulating tables
+      if (!is.null(private$.cachedDataSignature) && 
+          private$.cachedDataSignature == dataSignature) {
+        
+        # Just update display-only elements
+        if (self$options$showMethodInfo) {
+          private$.populateMethodInfo()
+        }
+        
+        # Plots will re-render from their existing state automatically
+        # via their renderFun when visibility changes
+        
+        return()
+      }
+      
       rowVar <- self$options$rows
       colVar <- self$options$cols
       strataVar <- self$options$strata
@@ -108,29 +143,8 @@ chisqstrataRxCClass <- R6::R6Class(
       dimnames(marginalTable) <- dimnames(array3D)[1:2]
       private$.populateMarginalTable(marginalTable, rowVar, colVar)
       
-      # Add section header for marginal table
-      self$results$marginalTableHeader$setContent(
-        "<h2 style='color: #3E6D9C; font-size: 1.2em; margin-top: 1.5em; margin-bottom: 0.5em;'>Marginal Table</h2>"
-      )
-      
-      # Add section header for analysis results
-      self$results$analysisResultsHeader$setContent(
-        "<h2 style='color: #3E6D9C; font-size: 1.2em; margin-top: 1.5em; margin-bottom: 0.5em;'>Statistical Tests and Summary Measures</h2>"
-      )
-      
-      # Add section header for interpretation guide
-      if (self$options$showInterpretation) {
-        self$results$interpretationGuideHeader$setContent(
-          "<h2 style='color: #3E6D9C; font-size: 1.2em; margin-top: 1.5em; margin-bottom: 0.5em;'>Interpretation Guide</h2>"
-        )
-      }
-      
       # ═══════════════════════════════════════════════════════════════════════════
       # 5. Compute V corrected and bootstrap CIs for each stratum
-      # ═══════════════════════════════════════════════════════════════════════════
-      
-      # ═══════════════════════════════════════════════════════════════════════════
-      # 5. Compute V corrected (point estimates always; bootstrap CIs only if needed)
       # ═══════════════════════════════════════════════════════════════════════════
       
       # Determine whether bootstrap CIs are actually required for display
@@ -141,11 +155,12 @@ chisqstrataRxCClass <- R6::R6Class(
       
       # Create a signature of the data and analytical parameters
       dataSignature <- paste(
-        paste(dim(array3D), collapse = "x"),
-        nBootstrap,
         self$options$rows,
         self$options$cols,
         self$options$strata,
+        self$options$counts,
+        self$options$nBootstrap,
+        self$options$strataOrdered,
         sep = "|"
       )
       
@@ -219,19 +234,21 @@ chisqstrataRxCClass <- R6::R6Class(
       # ═══════════════════════════════════════════════════════════════════════════
       
       private$.populateStratumResultsTable(vResults, marginalVResult, chiSqResults, 
-                                            marginalChiSq, strataNames)
+                                           marginalChiSq, strataNames)
+      
+      # ═══════════════════════════════════════════════════════════════════════════
+      # 8b. Compute and populate adjusted standardised residuals (always shown)
+      # ═══════════════════════════════════════════════════════════════════════════
+      
+      private$.populateResidualsSection(listOfTables, strataNames, rowVar, colVar)
+      
+      # ═══════════════════════════════════════════════════════════════════════════
+      # Populate other relevant tables
+      # ═══════════════════════════════════════════════════════════════════════════
       
       private$.populateCMHTable(cmhTest)
       private$.populateHomogeneityTable(loglinResult)
-      private$.populateSummaryMeasureTable(weighted_vcorr, weightedCI)
-      
-      # ═══════════════════════════════════════════════════════════════════════════
-      # 8b. Compute and populate adjusted standardised residuals (if requested)
-      # ═══════════════════════════════════════════════════════════════════════════
-      
-      if (self$options$showResiduals) {
-        private$.populateResidualsSection(listOfTables, strataNames, rowVar, colVar)
-      }
+      private$.populateSummaryMeasureTable(weighted_vcorr, weightedCI, loglinResult, cmhTest)
       
       # ═══════════════════════════════════════════════════════════════════════════
       # 9. Prepare plot states
@@ -261,29 +278,20 @@ chisqstrataRxCClass <- R6::R6Class(
       }
       
       # ═══════════════════════════════════════════════════════════════════════════
-      # 10. Generate interpretation
+      # 10. Populate interpretation summary table
       # ═══════════════════════════════════════════════════════════════════════════
       
-      if (self$options$showInterpretation) {
-        private$.populateInterpretation(
-          chiSqResults, marginalChiSq, cmhTest, loglinResult,
-          vResults, weighted_vcorr, weightedCI, strataNames,
-          rowVar, colVar, strataVar, nRowLevels, nColLevels
-        )
-      }
-      
-      # Populate diagnostic summary
-      if (self$options$showDiagnosticSummary) {
-        private$.populateDiagnosticSummary(cmhTest, loglinResult, 
-                                           rowVar, colVar, strataVar)
-      }
+      private$.populateInterpretationTable(
+        cmhTest, loglinResult,
+        weighted_vcorr, weightedCI,
+        rowVar, colVar, strataVar
+      )
       
       # ═══════════════════════════════════════════════════════════════════════════
       # 11. Populate method information and references
       # ═══════════════════════════════════════════════════════════════════════════
       
       private$.populateMethodInfo()
-      private$.populateReferences()
     },
     
     # ═══════════════════════════════════════════════════════════════════════════
@@ -318,8 +326,8 @@ chisqstrataRxCClass <- R6::R6Class(
       nr <- nrow(tbl)
       nc <- ncol(tbl)
       
-      # Handle empty strata (n=0) to prevent NaN errors
-      if (n == 0) {
+      # Handle empty or invalid tables
+      if (is.null(tbl) || n == 0 || is.na(n) || nr < 2 || nc < 2) {
         return(list(
           chisq = 0,
           df = (nr - 1) * (nc - 1),
@@ -393,13 +401,14 @@ chisqstrataRxCClass <- R6::R6Class(
         chi_boot_max <- max_res_boot$max_chisq
         
         # E. Calculate V_corrected for this replicate
-        if (chi_boot_max > 0) {
-          val <- sqrt(chi_boot_obs / chi_boot_max)
-        } else {
+        if (is.na(chi_boot_obs) || chi_boot_max <= 0) {
           val <- 0
+        } else {
+          val <- sqrt(chi_boot_obs / chi_boot_max)
+          if (is.na(val) || val > 1) val <- 1
         }
-        if (val > 1) val <- 1
         boot_v_corr[b] <- val
+        
       }
       
       # Percentile CI
@@ -470,12 +479,12 @@ chisqstrataRxCClass <- R6::R6Class(
           chi_max <- max_res$max_chisq
           
           # E. V Corrected for Stratum i
-          if (chi_max > 0) {
-            val <- sqrt(as.numeric(chi_obs) / chi_max)
-          } else {
+          if (is.na(chi_obs) || chi_max <= 0) {
             val <- 0
+          } else {
+            val <- sqrt(as.numeric(chi_obs) / chi_max)
+            if (is.na(val) || val > 1) val <- 1
           }
-          if (val > 1) val <- 1
           boot_v_k[i] <- val
         }
         
@@ -718,7 +727,7 @@ chisqstrataRxCClass <- R6::R6Class(
     # ═══════════════════════════════════════════════════════════════════════════
     
     .populateStratumResultsTable = function(vResults, marginalVResult, chiSqResults, 
-                                             marginalChiSq, strataNames) {
+                                            marginalChiSq, strataNames) {
       
       table <- self$results$stratumResultsTable
       K <- length(vResults)
@@ -750,6 +759,12 @@ chisqstrataRxCClass <- R6::R6Class(
         ciLower = marginalVResult$ci_lower,
         ciUpper = marginalVResult$ci_upper
       ))
+      
+      # Add footnote about V corrected CI interpretation
+      table$setNote('vcorrCINote', 
+                    paste0("V corrected is bounded between 0 and 1 by definition; ",
+                           "its confidence interval cannot include 0 and therefore ",
+                           "cannot be used to test the null hypothesis of no association."))
     },
     
     # ═══════════════════════════════════════════════════════════════════════════
@@ -766,6 +781,21 @@ chisqstrataRxCClass <- R6::R6Class(
         df = as.integer(cmhTest$parameter),
         pvalue = cmhTest$p.value
       ))
+      
+      # Add conditional footnote based on significance
+      cmhSig <- cmhTest$p.value < 0.05
+      if (cmhSig) {
+        cmhFootnote <- paste0(
+          "The CMH test is significant, suggesting conditional dependence: ",
+          "the association between the row and column variables is not zero in at least one stratum."
+        )
+      } else {
+        cmhFootnote <- paste0(
+          "The CMH test is not significant, suggesting conditional independence: ",
+          "no association between the row and column variables after controlling for the stratifying variable."
+        )
+      }
+      table$setNote('cmhInterpretation', cmhFootnote)
     },
     
     # ═══════════════════════════════════════════════════════════════════════════
@@ -782,13 +812,28 @@ chisqstrataRxCClass <- R6::R6Class(
         df = loglinResult$df,
         pvalue = loglinResult$pvalue
       ))
+      
+      # Add conditional footnote based on significance
+      llSig <- loglinResult$pvalue < 0.05
+      if (llSig) {
+        homogFootnote <- paste0(
+          "The test is significant: the association pattern is heterogeneous across strata. ",
+          "Examine stratum-specific values rather than the weighted average."
+        )
+      } else {
+        homogFootnote <- paste0(
+          "The test is not significant: no evidence against homogeneity of association. ",
+          "The association pattern is consistent across strata."
+        )
+      }
+      table$setNote('homogeneityInterpretation', homogFootnote)
     },
     
     # ═══════════════════════════════════════════════════════════════════════════
     # Populate: Summary measure table
     # ═══════════════════════════════════════════════════════════════════════════
     
-    .populateSummaryMeasureTable = function(weighted_vcorr, weightedCI) {
+    .populateSummaryMeasureTable = function(weighted_vcorr, weightedCI, loglinResult, cmhTest) {
       
       table <- self$results$summaryMeasureTable
       
@@ -798,6 +843,30 @@ chisqstrataRxCClass <- R6::R6Class(
         ciLower = weightedCI$ci_lower,
         ciUpper = weightedCI$ci_upper
       ))
+      
+      # Add footnote about interpretation
+      llSig <- loglinResult$pvalue < 0.05
+      cmhSig <- cmhTest$p.value < 0.05
+      
+      if (!cmhSig) {
+        # No conditional association detected
+        summaryFootnote <- paste0(
+          "No conditional association detected (CMH test not significant). ",
+          "This summary measure is not substantively meaningful."
+        )
+      } else if (llSig) {
+        # Conditional association exists but heterogeneous
+        summaryFootnote <- paste0(
+          "Heterogeneity detected: this summary may be misleading. ",
+          "Report stratum-specific V corrected values instead."
+        )
+      } else {
+        # Conditional association exists and is homogeneous
+        summaryFootnote <- paste0(
+          "Homogeneity holds: this weighted average provides a valid summary of the conditional association."
+        )
+      }
+      table$setNote('summaryInterpretation', summaryFootnote)
     },
     
     # ═══════════════════════════════════════════════════════════════════════════
@@ -847,11 +916,6 @@ chisqstrataRxCClass <- R6::R6Class(
       
       K <- length(listOfTables)
       
-      # Add section header
-      self$results$residualsHeader$setContent(
-        "<h2 style='color: #3E6D9C; font-size: 1.2em; margin-top: 1.5em; margin-bottom: 0.5em;'>Adjusted Standardised Residuals</h2>"
-      )
-      
       residualsGroup <- self$results$residualsGroup
       
       for (k in 1:K) {
@@ -870,7 +934,7 @@ chisqstrataRxCClass <- R6::R6Class(
         table <- residualsGroup$get(key = k)
         
         # Set title
-        table$setTitle(paste0("Stratum: ", strataNames[k]))
+        table$setTitle(paste0("Adjusted Standardised Residuals: ", strataNames[k]))
         
         # Add row name column
         table$addColumn(
@@ -885,363 +949,175 @@ chisqstrataRxCClass <- R6::R6Class(
             name = paste0("col", j),
             title = colNames[j],
             superTitle = colVar,
-            type = 'text'
+            type = 'number',
+            format = 'zto'
           )
         }
         
-        # Populate rows with colour-coded values
+        # Populate rows with colour coding for significant residuals
         for (i in 1:nRows) {
           rowValues <- list(rowname = rowNames[i])
           for (j in 1:nCols) {
-            value <- asr[i, j]
-            formatted_value <- sprintf("%.3f", value)
-            
-            # Colour-code: red for significant positive, blue for significant negative
-            if (abs(value) > 1.96) {
-              if (value > 0) {
-                formatted_value <- paste0(
-                  "<span style='display: block; text-align: center; color: red;'>",
-                  formatted_value, "</span>"
-                )
-              } else {
-                formatted_value <- paste0(
-                  "<span style='display: block; text-align: center; color: blue;'>",
-                  formatted_value, "</span>"
-                )
-              }
-            } else {
-              formatted_value <- paste0(
-                "<span style='display: block; text-align: center;'>",
-                formatted_value, "</span>"
-              )
-            }
-            
-            rowValues[[paste0("col", j)]] <- formatted_value
+            rowValues[[paste0("col", j)]] <- asr[i, j]
           }
           table$addRow(rowKey = i, values = rowValues)
+          
+          # Apply highlighting for significant residuals (|value| > 1.96)
+          for (j in 1:nCols) {
+            value <- asr[i, j]
+            if (!is.na(value) && abs(value) > 1.96) {
+              table$addFormat(
+                rowKey = i,
+                col = paste0('col', j),
+                format = Cell.NEGATIVE
+              )
+            }
+          }
+        }
+        
+        # Add footnote to last table only
+        if (k == K) {
+          table$setNote('residualsExplanation', 
+                        paste0("Adjusted standardised residuals follow an approximate standard normal distribution. ",
+                               "Values exceeding \u00B11.96 indicate cells contributing significantly to the ",
+                               "chi-squared statistic at \u03B1 = 0.05. For additional residual measures and ",
+                               "multiple comparison corrections, filter your data to a single stratum and use ",
+                               "the Post-Hoc Analysis facility.")
+          )
         }
       }
-      
-      # Add explanatory note with cross-reference to Post-Hoc facility
-      noteHtml <- paste0(
-        "<p style='font-size: 0.9em; color: #555; margin-top: 1em;'>",
-        "<em>Note:</em> Adjusted standardised residuals follow an approximate standard normal distribution ",
-        "under the null hypothesis of independence. Values exceeding &plusmn;1.96 (highlighted in ",
-        "<span style='color: red;'>red</span> for positive, <span style='color: blue;'>blue</span> ",
-        "for negative) indicate cells contributing significantly to the chi-squared statistic at ",
-        "&alpha; = 0.05. Residuals are computed within each stratum using that stratum's marginal totals.",
-        "</p>",
-        "<p style='font-size: 0.9em; color: #555; margin-top: 0.5em;'>",
-        "<em>For additional cell-level diagnostics</em>  ",
-        "and alternative residual measures, filter your data to a single ",
-        "stratum and use the <strong>Post-Hoc Analysis</strong> facility of this module.",
-        "</p>"
-      )
-      
-      self$results$residualsNote$setContent(noteHtml)
     },
     
     # ═══════════════════════════════════════════════════════════════════════════
-    # Populate: Interpretation
+    # Add Interpretation Notice
     # ═══════════════════════════════════════════════════════════════════════════
     
-    .populateInterpretation = function(chiSqResults, marginalChiSq, cmhTest, loglinResult,
-                                        vResults, weighted_vcorr, weightedCI, strataNames,
-                                        rowVar, colVar, strataVar, nRowLevels, nColLevels) {
+    # ═══════════════════════════════════════════════════════════════════════════
+    # Populate: Interpretation Summary Table
+    # ═══════════════════════════════════════════════════════════════════════════
+    
+    .populateInterpretationTable = function(cmhTest, loglinResult,
+                                            weighted_vcorr, weightedCI,
+                                            rowVar, colVar, strataVar) {
       
+      table <- self$results$interpretationTable
       
+      # Initialise table rows
+      table$addRow(rowKey = 'condIndep', values = list(topic = 'Conditional Independence/Dependence'))
+      table$addRow(rowKey = 'homogeneity', values = list(topic = 'Homogeneity/Heterogeneity'))
+      table$addRow(rowKey = 'scenario', values = list(topic = 'Interpretation'))
+      
+      # ─────────────────────────────────────────────────────────────────────────
       # Guard against invalid test results
+      # ─────────────────────────────────────────────────────────────────────────
+      
       if (is.null(cmhTest$p.value) || is.na(cmhTest$p.value) ||
           is.null(loglinResult$pvalue) || is.na(loglinResult$pvalue)) {
-        self$results$interpretationNote$setContent(
-          "<p style='color: #856404; background-color: #fff3cd; padding: 10px; border-radius: 4px;'>
-          <strong>Note:</strong> Interpretation could not be generated because the 
-          statistical tests returned invalid results. If using aggregated data, 
-          please assign the counts variable.</p>"
-        )
+        
+        table$setRow(rowKey = 'condIndep', values = list(
+          result = "Could not be determined (invalid test results)"
+        ))
+        table$setRow(rowKey = 'homogeneity', values = list(
+          result = "Could not be determined (invalid test results)"
+        ))
+        table$setRow(rowKey = 'scenario', values = list(
+          result = "Interpretation unavailable"
+        ))
         return()
       }
       
-      
-      K <- length(chiSqResults)
-      
-      html <- "<div style='font-family: sans-serif; line-height: 1.6; font-size: 0.95em;'>"
-      
       # ─────────────────────────────────────────────────────────────────────────
-      # (A) Chi-squared test results
-      # ─────────────────────────────────────────────────────────────────────────
-      
-      html <- paste0(html, "<p><strong>(A) Chi-squared test results:</strong></p>")
-      html <- paste0(html, "<ul style='margin-left: 0; padding-left: 1.5em;'>")
-      
-      for (k in 1:K) {
-        pval <- chiSqResults[[k]]$pvalue
-        if (!is.na(pval) && pval < 0.05) {
-          sigText <- "significant"
-        } else {
-          sigText <- "not significant"
-        }
-        html <- paste0(html, "<li>Partial Table ", k, " (", strataNames[k], "): ",
-                       "\u03C7\u00B2 = ", sprintf("%.2f", chiSqResults[[k]]$statistic),
-                       ", df = ", chiSqResults[[k]]$df,
-                       ", p = ", sprintf("%.3f", pval),
-                       " (", sigText, ")</li>")
-      }
-      
-      margSigText <- if (marginalChiSq$p.value < 0.05) "significant" else "not significant"
-      html <- paste0(html, "<li>Marginal Table: ",
-                     "\u03C7\u00B2 = ", sprintf("%.2f", as.numeric(marginalChiSq$statistic)),
-                     ", df = ", as.integer(marginalChiSq$parameter),
-                     ", p = ", sprintf("%.3f", marginalChiSq$p.value),
-                     " (", margSigText, ")</li>")
-      
-      html <- paste0(html, "</ul>")
-      
-      # ─────────────────────────────────────────────────────────────────────────
-      # (B) CMH test
+      # Determine significance flags
       # ─────────────────────────────────────────────────────────────────────────
       
       cmhSig <- cmhTest$p.value < 0.05
-      cmhSigText <- if (cmhSig) "" else "not "
-      cmhInterpretation <- if (cmhSig) {
-        "conditional dependence (the association between the row and column variables is not zero in at least one stratum)"
+      llSig <- loglinResult$pvalue < 0.05
+      
+      # ─────────────────────────────────────────────────────────────────────────
+      # STAGE 1: Determine conditional dependence status
+      # ─────────────────────────────────────────────────────────────────────────
+      
+      if (cmhSig) {
+        stage1Text <- paste0(
+          "CMH test significant (p < 0.05): the association between '", rowVar, 
+          "' and '", colVar, "' persists after controlling for '", strataVar, "'."
+        )
       } else {
-        "conditional independence (the association between the row and column variables is zero in all strata)"
+        stage1Text <- paste0(
+          "CMH test not significant (p \u2265 0.05): no association between '", 
+          rowVar, "' and '", colVar, "' after controlling for '", strataVar, "'."
+        )
       }
       
-      html <- paste0(html, 
-        "<p><strong>(B)</strong> The generalised Cochran-Mantel-Haenszel test is <strong>",
-        cmhSigText, "significant</strong> (\u03C7\u00B2 = ", 
-        sprintf("%.2f", as.numeric(cmhTest$statistic)),
-        ", df = ", as.integer(cmhTest$parameter),
-        ", p = ", sprintf("%.3f", cmhTest$p.value),
-        "), suggesting ", cmhInterpretation, ".</p>"
-      )
-      
       # ─────────────────────────────────────────────────────────────────────────
-      # (C) Log-linear homogeneity test
+      # STAGE 2: Determine homogeneity status
       # ─────────────────────────────────────────────────────────────────────────
-      
-      llSig <- loglinResult$pvalue < 0.05
-      llSigText <- if (llSig) "" else "not "
-      llInterpretation <- if (llSig) "heterogeneity" else "homogeneity"
-      
-      html <- paste0(html,
-        "<p><strong>(C)</strong> The log-linear likelihood ratio test for homogeneity of association is <strong>",
-        llSigText, "significant</strong> (G\u00B2 = ",
-        sprintf("%.2f", loglinResult$statistic),
-        ", df = ", loglinResult$df,
-        ", p = ", sprintf("%.3f", loglinResult$pvalue),
-        "), indicating ", llInterpretation, " of the association pattern across strata.</p>"
-      )
-      
-      # ─────────────────────────────────────────────────────────────────────────
-      # (D) Association measures summary
-      # ─────────────────────────────────────────────────────────────────────────
-      
-      vcorr_values <- sapply(vResults, function(x) x$vcorr)
-      vcorr_range <- max(vcorr_values) - min(vcorr_values)
-      
-      html <- paste0(html,
-        "<p><strong>(D) Association strength:</strong> ",
-        "Cram\u00E9r's V corrected ranges from ", sprintf("%.3f", min(vcorr_values)),
-        " to ", sprintf("%.3f", max(vcorr_values)),
-        " across strata (range = ", sprintf("%.3f", vcorr_range), "). ",
-        "The weighted average V<sub>corrected</sub> is ", sprintf("%.3f", weighted_vcorr),
-        " (95% CI: ", sprintf("%.3f", weightedCI$ci_lower), 
-        "\u2013", sprintf("%.3f", weightedCI$ci_upper), ").</p>"
-      )
-      
-      # ─────────────────────────────────────────────────────────────────────────
-      # (E) Overall interpretation
-      # ─────────────────────────────────────────────────────────────────────────
-      
-      html <- paste0(html, "<p><strong>(E) Overall interpretation:</strong> ")
       
       if (llSig) {
-        # Heterogeneity exists - interaction effect
-        if (cmhSig) {
-          html <- paste0(html,
-            "The CMH test indicates a significant conditional association between '",
-            rowVar, "' and '", colVar, "' after controlling for '", strataVar, "'. ",
-            "However, significant heterogeneity of association across strata has been detected, ",
-            "indicating an <strong>interaction effect</strong>: '", strataVar,
-            "' modifies the <strong>strength</strong> of the association between '", rowVar, 
-            "' and '", colVar, "'. ",
-            "Because the association varies in magnitude across strata, ",
-            "stratum-specific V<sub>corrected</sub> values should be reported rather than a single weighted average."
-          )
-        } else {
-          html <- paste0(html,
-            "The CMH test does not indicate a significant conditional association between '",
-            rowVar, "' and '", colVar, "' after controlling for '", strataVar, "'. ",
-            "However, significant heterogeneity has been detected, suggesting that ",
-            "associations may exist in some strata but cancel out overall. ",
-            "Stratum-specific chi-squared tests should be evaluated to assess within-stratum associations."
-          )
-        }
+        stage2Text <- paste0(
+          "Log-linear homogeneity test significant: the association pattern ",
+          "is heterogeneous across strata (effect modification)."
+        )
       } else {
-        # Homogeneity exists
-        if (cmhSig) {
-          # Significant CMH with homogeneity: consistent conditional association
-          html <- paste0(html,
-                         "The CMH test indicates significant conditional dependence between '",
-                         rowVar, "' and '", colVar, "' after controlling for '", strataVar, "': ",
-                         "the association between the row and column variables is not zero in at least one stratum. ",
-                         "Given the homogeneity of association across strata, '", strataVar,
-                         "' does not significantly modify this association. ",
-                         "The conditional association between '", rowVar, "' and '", colVar,
-                         "' is consistent across levels of '", strataVar,
-                         "', and can be summarised using the weighted average V<sub>corrected</sub> (",
-                         sprintf("%.3f", weighted_vcorr), "; 95% CI: ", 
-                         sprintf("%.3f", weightedCI$ci_lower), "\u2013", sprintf("%.3f", weightedCI$ci_upper), ")."
-          )
-        } else {
-          # Non-significant CMH with homogeneity: conditional independence
-          html <- paste0(html,
-                         "The CMH test does not indicate a significant conditional association between '",
-                         rowVar, "' and '", colVar, "' after controlling for '", strataVar, "'. ",
-                         "This suggests <strong>conditional independence</strong>: any marginal association, if present, ",
-                         "vanishes when the data are stratified by '", strataVar, "'."
-          )
-        }
+        stage2Text <- paste0(
+          "Log-linear homogeneity test not significant: the association pattern ",
+          "is homogeneous across strata."
+        )
       }
       
-      html <- paste0(html, "</p>")
-      
       # ─────────────────────────────────────────────────────────────────────────
-      # Cautionary note
+      # STAGE 3: Determine scenario and recommendation
       # ─────────────────────────────────────────────────────────────────────────
       
-      html <- paste0(html,
-        "<p style='font-size: 0.9em; color: #666; margin-top: 1em;'><em>",
-        "Note: The interpretation guidelines provided are suggested based on the statistical tests' outcomes ",
-        "and should be further evaluated within the context of your study. For tables larger than 2\u00D72, ",
-        "Cram\u00E9r's V corrected is used as the association measure. The correction adjusts for the maximum ",
-        "possible chi-squared given the marginal totals, making values comparable across tables with different structures. ",
-        "Confidence intervals are computed via bootstrap (",
-        self$options$nBootstrap, " replicates).",
-        "</em></p>"
-      )
-      
-      html <- paste0(html, "</div>")
-      
-      self$results$interpretationNote$setContent(html)
-    },
-    
-    # ═══════════════════════════════════════════════════════════════════════════
-    # Populate: Diagnostic Summary
-    # ═══════════════════════════════════════════════════════════════════════════
-    
-    .populateDiagnosticSummary = function(cmhTest, loglinResult, rowVar, colVar, strataVar) {
-      
-      # Guard against invalid test results
-      if (is.null(cmhTest$p.value) || is.na(cmhTest$p.value) ||
-          is.null(loglinResult$pvalue) || is.na(loglinResult$pvalue)) {
-        return()
-      }
-      
-      # Determine significance
-      cmhSig <- cmhTest$p.value < 0.05
-      loglinSig <- loglinResult$pvalue < 0.05
-      
-      # Determine scenario (must match decision tree exactly)
-      if (cmhSig && !loglinSig) {
-        # Scenario 1: CMH significant, homogeneity holds
-        scenario <- "Replication (Homogeneous Association)"
-        explanation <- paste0(
-          "<p><strong>Replication</strong> (homogeneous association) occurs when the association between two variables ",
-          "remains consistent in strength across all levels of a third variable.</p>",
-          "<p>In this analysis:</p>",
-          "<ul>",
-          "<li>The <strong>generalised CMH test</strong> is significant (\u03C7\u00B2 = ",
-          sprintf("%.2f", as.numeric(cmhTest$statistic)), ", p = ", sprintf("%.3f", cmhTest$p.value),
-          "), indicating that '", rowVar, "' and '", colVar, 
-          "' are <em>not</em> conditionally independent given '", strataVar, "'.</li>",
-          "<li>The <strong>log-linear homogeneity test</strong> is not significant (G\u00B2 = ",
-          sprintf("%.2f", loglinResult$statistic), ", p = ", sprintf("%.3f", loglinResult$pvalue),
-          "), indicating that the strength of association is consistent across strata.</li>",
-          "</ul>",
-          "<p><strong>Conclusion:</strong> A conditional association exists between '", rowVar,
-          "' and '", colVar, "' given '", strataVar, "', and '", strataVar, 
-          "' is neither a confounder nor an effect modifier. The weighted average V<sub>corrected</sub> provides a valid summary of this conditional association.</p>"
+      if (cmhSig && !llSig) {
+        # Scenario 1: Replication (homogeneous association)
+        scenario <- "Replication"
+        recommendation <- paste0(
+          "'", strataVar, "' is neither a confounder nor an effect modifier. ",
+          "The association is consistent across strata. ",
+          "The weighted average V corrected (", sprintf("%.3f", weighted_vcorr), 
+          "; 95% CI: ", sprintf("%.3f", weightedCI$ci_lower), 
+          "\u2013", sprintf("%.3f", weightedCI$ci_upper), ") provides a valid summary."
         )
         
-      } else if (cmhSig && loglinSig) {
-        # Scenario 2: CMH significant, heterogeneity present
-        scenario <- "Heterogeneous Association (Effect Modification)"
-        explanation <- paste0(
-          "<p><strong>Heterogeneous association</strong> (effect modification) indicates <em>conditional dependence with interaction</em>: ",
-          "a significant conditional association exists between the row and column variables after controlling for the stratifying variable, ",
-          "but the strength of this association varies across strata.</p>",
-          "<p>In this analysis:</p>",
-          "<ul>",
-          "<li>The <strong>generalised CMH test</strong> is significant (\u03C7\u00B2 = ",
-          sprintf("%.2f", as.numeric(cmhTest$statistic)), ", p = ", sprintf("%.3f", cmhTest$p.value),
-          "), indicating that '", rowVar, "' and '", colVar, 
-          "' are <em>not</em> conditionally independent given '", strataVar, "'.</li>",
-          "<li>The <strong>log-linear homogeneity test</strong> is significant (G\u00B2 = ",
-          sprintf("%.2f", loglinResult$statistic), ", p = ", sprintf("%.3f", loglinResult$pvalue),
-          "), indicating that the strength of association varies across strata.</li>",
-          "</ul>",
-          "<p><strong>Conclusion:</strong> A conditional association exists between '", rowVar,
-          "' and '", colVar, "' given '", strataVar, "', but '", strataVar, 
-          "' acts as an <em>effect modifier</em>. A single weighted average is not meaningful; stratum-specific V<sub>corrected</sub> values should be reported.</p>"
+      } else if (cmhSig && llSig) {
+        # Scenario 2: Interaction (heterogeneous association)
+        scenario <- "Interaction"
+        recommendation <- paste0(
+          "'", strataVar, "' acts as an effect modifier: the strength of association ",
+          "varies across strata. Report stratum-specific V corrected values rather than ",
+          "the weighted average."
         )
         
-      } else if (!cmhSig && !loglinSig) {
-        # Scenario 3: CMH not significant, homogeneity holds
+      } else if (!cmhSig && !llSig) {
+        # Scenario 3: Conditional independence
         scenario <- "Conditional Independence"
-        explanation <- paste0(
-          "<p><strong>Conditional independence</strong> indicates <em>no conditional association</em> between the row and column variables ",
-          "after controlling for the stratifying variable, with consistently near-zero effects across all strata.</p>",
-          "<p>In this analysis:</p>",
-          "<ul>",
-          "<li>The <strong>generalised CMH test</strong> is not significant (\u03C7\u00B2 = ",
-          sprintf("%.2f", as.numeric(cmhTest$statistic)), ", p = ", sprintf("%.3f", cmhTest$p.value),
-          "), indicating that '", rowVar, "' and '", colVar, 
-          "' are conditionally independent given '", strataVar, "'.</li>",
-          "<li>The <strong>log-linear homogeneity test</strong> is not significant (G\u00B2 = ",
-          sprintf("%.2f", loglinResult$statistic), ", p = ", sprintf("%.3f", loglinResult$pvalue),
-          "), indicating that this absence of association is consistent across strata.</li>",
-          "</ul>",
-          "<p><strong>Conclusion:</strong> No conditional association exists between '", rowVar,
-          "' and '", colVar, "' given '", strataVar, 
-          "'. If a marginal association was observed, '", strataVar, "' may have acted as a confounder.</p>"
+        recommendation <- paste0(
+          "No conditional association exists between '", rowVar, "' and '", colVar, 
+          "' given '", strataVar, "'. If a marginal association was observed, ",
+          "'", strataVar, "' may have acted as a confounder."
         )
         
       } else {
-        # Scenario 4: CMH not significant, heterogeneity present
-        scenario <- "Opposing Associations (Cancellation)"
-        explanation <- paste0(
-          "<p><strong>Opposing associations</strong> indicate a complex pattern: the overall CMH test suggests <em>conditional independence</em>, ",
-          "yet the significant heterogeneity test reveals that stratum-specific conditional associations exist but differ in ways that cancel out when aggregated.</p>",
-          "<p>In this analysis:</p>",
-          "<ul>",
-          "<li>The <strong>generalised CMH test</strong> is not significant (\u03C7\u00B2 = ",
-          sprintf("%.2f", as.numeric(cmhTest$statistic)), ", p = ", sprintf("%.3f", cmhTest$p.value),
-          "), suggesting no overall conditional association between '", rowVar, "' and '", colVar, "'.</li>",
-          "<li>The <strong>log-linear homogeneity test</strong> is significant (G\u00B2 = ",
-          sprintf("%.2f", loglinResult$statistic), ", p = ", sprintf("%.3f", loglinResult$pvalue),
-          "), indicating that the association patterns differ meaningfully across strata.</li>",
-          "</ul>",
-          "<p><strong>Conclusion:</strong> Although the CMH test does not detect an overall conditional association, ",
-          "the heterogeneity indicates that conditional associations likely exist within individual strata but cancel out in aggregate. ",
-          "Alternatively, this may reflect insufficient statistical power. ",
-          "Stratum-specific chi-squared tests and V<sub>corrected</sub> values should be examined.</p>"
+        # Scenario 4: CMH not significant but heterogeneity present
+        scenario <- "Opposing Associations"
+        recommendation <- paste0(
+          "The CMH test does not detect an overall conditional association, but ",
+          "the heterogeneity test indicates that association patterns differ across strata. ",
+          "This may reflect opposing effects that cancel out when aggregated, or insufficient power. ",
+          "Examine stratum-specific chi-squared tests and V corrected values."
         )
       }
       
-      # Build final HTML
-      html <- paste0(
-        "<div style='background-color: #f0f7fb; border-left: 4px solid #2874A6; ",
-        "padding: 15px; margin: 10px 0; font-family: sans-serif;'>",
-        "<h4 style='color: #2874A6; margin-top: 0;'>Diagnostic Summary: ", scenario, "</h4>",
-        explanation,
-        "</div>"
-      )
+      stage3Text <- paste0(scenario, ": ", recommendation, " (Based on \u03B1 = 0.05)")
       
-      self$results$diagnosticSummary$setContent(html)
+      # ─────────────────────────────────────────────────────────────────────────
+      # Populate table
+      # ─────────────────────────────────────────────────────────────────────────
+      
+      table$setRow(rowKey = 'condIndep', values = list(result = stage1Text))
+      table$setRow(rowKey = 'homogeneity', values = list(result = stage2Text))
+      table$setRow(rowKey = 'scenario', values = list(result = stage3Text))
     },
     
     # ═══════════════════════════════════════════════════════════════════════════
@@ -1442,35 +1318,6 @@ chisqstrataRxCClass <- R6::R6Class(
       html <- paste0(html, "</div>")
       
       self$results$methodInfo$setContent(html)
-    },
-    
-    # ═══════════════════════════════════════════════════════════════════════════
-    # Populate: References
-    # ═══════════════════════════════════════════════════════════════════════════
-    
-    .populateReferences = function() {
-      
-      references_html <- paste0(
-        "<div style='font-size: 0.85em; color: #444; margin: 15px 0; line-height: 1.5;'>",
-        "<h3 style='color: #2874A6; margin-top: 0.5em; margin-bottom: 0.5em;'>References</h3>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Agresti, A. (2013). <em>Categorical Data Analysis</em> (3rd ed.). Wiley.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Alberti, G. (2024). <em>From Data to Insights. A Beginner's Guide to Cross-Tabulation Analysis</em>. Chapman & Hall.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Azen, R., & Walker, C. M. (2021). <em>Categorical Data Analysis for the Behavioral and Social Sciences</em> (2nd ed.). Routledge.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Berry, K. J., Johnston, J. E., & Mielke, P. W., Jr. (2018). <em>The Measurement of Association: A Permutation Statistical Approach</em>. Springer.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Blalock, H. M. (1979). <em>Social Statistics</em> (Rev. 2nd ed.). McGraw-Hill.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Ott, R. L., Larson, R., Rexroat, C., & Mendenhall, W. (1992). <em>Statistics: A Tool for the Social Sciences</em> (5th ed.). PWS-KENT Publishing Company.</p>",
-        "<p style='margin-left: 20px; text-indent: -20px;'>",
-        "Reynolds, H. T. (1977). <em>The Analysis of Cross-Classifications</em>. The Free Press.</p>",
-        "</div>"
-      )
-      
-      self$results$legendNote$setContent(references_html)
     },
     
     # ═══════════════════════════════════════════════════════════════════════════

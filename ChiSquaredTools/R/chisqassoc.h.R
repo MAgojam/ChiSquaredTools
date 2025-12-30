@@ -27,15 +27,13 @@ chisqassocOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
             sakoda = FALSE,
             sakodaCorrected = FALSE,
             sakodaLocal = FALSE,
-            yulesQ = FALSE,
-            yulesY = FALSE,
-            oddsRatio = FALSE,
+            marginFree = FALSE,
             rowRef = NULL,
             colRef = NULL,
             gkLambda = FALSE,
             gkLambdaCorrected = FALSE,
             gkTau = FALSE,
-            confLevel = 0.95,
+            confLevel = 95,
             bootstrapReps = 999,
             seed = 123,
             showChisqMax = FALSE,
@@ -142,17 +140,9 @@ chisqassocOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
                 "sakodaLocal",
                 sakodaLocal,
                 default=FALSE)
-            private$..yulesQ <- jmvcore::OptionBool$new(
-                "yulesQ",
-                yulesQ,
-                default=FALSE)
-            private$..yulesY <- jmvcore::OptionBool$new(
-                "yulesY",
-                yulesY,
-                default=FALSE)
-            private$..oddsRatio <- jmvcore::OptionBool$new(
-                "oddsRatio",
-                oddsRatio,
+            private$..marginFree <- jmvcore::OptionBool$new(
+                "marginFree",
+                marginFree,
                 default=FALSE)
             private$..rowRef <- jmvcore::OptionLevel$new(
                 "rowRef",
@@ -177,9 +167,9 @@ chisqassocOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
             private$..confLevel <- jmvcore::OptionNumber$new(
                 "confLevel",
                 confLevel,
-                min=0.5,
-                max=0.999,
-                default=0.95)
+                min=50,
+                max=99.9,
+                default=95)
             private$..bootstrapReps <- jmvcore::OptionInteger$new(
                 "bootstrapReps",
                 bootstrapReps,
@@ -230,9 +220,7 @@ chisqassocOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
             self$.addOption(private$..sakoda)
             self$.addOption(private$..sakodaCorrected)
             self$.addOption(private$..sakodaLocal)
-            self$.addOption(private$..yulesQ)
-            self$.addOption(private$..yulesY)
-            self$.addOption(private$..oddsRatio)
+            self$.addOption(private$..marginFree)
             self$.addOption(private$..rowRef)
             self$.addOption(private$..colRef)
             self$.addOption(private$..gkLambda)
@@ -268,9 +256,7 @@ chisqassocOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
         sakoda = function() private$..sakoda$value,
         sakodaCorrected = function() private$..sakodaCorrected$value,
         sakodaLocal = function() private$..sakodaLocal$value,
-        yulesQ = function() private$..yulesQ$value,
-        yulesY = function() private$..yulesY$value,
-        oddsRatio = function() private$..oddsRatio$value,
+        marginFree = function() private$..marginFree$value,
         rowRef = function() private$..rowRef$value,
         colRef = function() private$..colRef$value,
         gkLambda = function() private$..gkLambda$value,
@@ -305,9 +291,7 @@ chisqassocOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
         ..sakoda = NA,
         ..sakodaCorrected = NA,
         ..sakodaLocal = NA,
-        ..yulesQ = NA,
-        ..yulesY = NA,
-        ..oddsRatio = NA,
+        ..marginFree = NA,
         ..rowRef = NA,
         ..colRef = NA,
         ..gkLambda = NA,
@@ -327,17 +311,15 @@ chisqassocResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
     inherit = jmvcore::Group,
     active = list(
         crosstabTable = function() private$.items[["crosstabTable"]],
-        orInterpretation = function() private$.items[["orInterpretation"]],
         chisqMaxTable = function() private$.items[["chisqMaxTable"]],
         standardisedTable = function() private$.items[["standardisedTable"]],
         resultsTable = function() private$.items[["resultsTable"]],
         sakodaLocalTable = function() private$.items[["sakodaLocalTable"]],
-        sakodaLocalNote = function() private$.items[["sakodaLocalNote"]],
-        pairwiseTable = function() private$.items[["pairwiseTable"]],
-        unilateralWarning = function() private$.items[["unilateralWarning"]],
+        pairwiseORTable = function() private$.items[["pairwiseORTable"]],
+        pairwiseQTable = function() private$.items[["pairwiseQTable"]],
+        pairwiseYTable = function() private$.items[["pairwiseYTable"]],
         thresholdsTable = function() private$.items[["thresholdsTable"]],
-        methodInfo = function() private$.items[["methodInfo"]],
-        legendNote = function() private$.items[["legendNote"]]),
+        methodInfo = function() private$.items[["methodInfo"]]),
     private = list(),
     public=list(
         initialize=function(options) {
@@ -351,45 +333,8 @@ chisqassocResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
                 title="Observed Contingency Table",
                 clearWith=list(
                     "rows",
-                    "cols"),
-                columns=list()))
-            self$add(jmvcore::Html$new(
-                options=options,
-                name="orInterpretation",
-                title="",
-                visible="(oddsRatio)",
-                clearWith=list(
-                    "rows",
                     "cols",
-                    "rowRef",
-                    "colRef")))
-            self$add(jmvcore::Table$new(
-                options=options,
-                name="chisqMaxTable",
-                title="Chi-Square-Maximising Table",
-                visible="(showChisqMax)",
-                clearWith=list(
-                    "rows",
-                    "cols"),
-                columns=list()))
-            self$add(jmvcore::Table$new(
-                options=options,
-                name="standardisedTable",
-                title="Standardised Contingency Table",
-                visible="(showStandardised)",
-                clearWith=list(
-                    "rows",
-                    "cols"),
-                columns=list()))
-            self$add(jmvcore::Table$new(
-                options=options,
-                name="resultsTable",
-                title="Association Measures Summary",
-                clearWith=list(
-                    "rows",
-                    "cols",
-                    "confLevel",
-                    "bootstrapReps",
+                    "counts",
                     "phi",
                     "phiSigned",
                     "phiCorrected",
@@ -407,14 +352,59 @@ chisqassocResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
                     "wHatCorrected",
                     "sakoda",
                     "sakodaCorrected",
-                    "yulesQ",
-                    "yulesY",
-                    "oddsRatio",
-                    "rowRef",
-                    "colRef",
+                    "sakodaLocal",
+                    "marginFree",
                     "gkLambda",
                     "gkLambdaCorrected",
-                    "gkTau"),
+                    "gkTau",
+                    "rowRef",
+                    "colRef"),
+                columns=list()))
+            self$add(jmvcore::Table$new(
+                options=options,
+                name="chisqMaxTable",
+                title="Chi-Square-Maximising Table",
+                visible="(showChisqMax)",
+                clearWith=list(
+                    "rows",
+                    "cols",
+                    "counts"),
+                columns=list(),
+                refs=list(
+                    "berry2018")))
+            self$add(jmvcore::Table$new(
+                options=options,
+                name="standardisedTable",
+                title="Standardised Contingency Table",
+                visible="(showStandardised)",
+                clearWith=list(
+                    "rows",
+                    "cols",
+                    "counts"),
+                columns=list(),
+                refs=list(
+                    "fienberg1971",
+                    "smith1976",
+                    "reynolds1977")))
+            self$add(jmvcore::Table$new(
+                options=options,
+                name="resultsTable",
+                title="Association Measures Summary",
+                refs=list(
+                    "agresti2013",
+                    "alberti2024",
+                    "bishop2007",
+                    "goodman1979",
+                    "reynolds1977"),
+                clearWith=list(
+                    "rows",
+                    "cols",
+                    "counts",
+                    "confLevel",
+                    "bootstrapReps",
+                    "seed",
+                    "rowRef",
+                    "colRef"),
                 columns=list(
                     list(
                         `name`="measure", 
@@ -448,37 +438,29 @@ chisqassocResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
                 visible="(sakodaLocal)",
                 clearWith=list(
                     "rows",
-                    "cols"),
+                    "cols",
+                    "counts"),
                 columns=list()))
-            self$add(jmvcore::Html$new(
-                options=options,
-                name="sakodaLocalNote",
-                title="",
-                visible="(sakodaLocal)"))
             self$add(jmvcore::Table$new(
                 options=options,
-                name="pairwiseTable",
-                title="Pairwise Comparisons",
-                visible=FALSE,
+                name="pairwiseORTable",
+                title="Pairwise Odds Ratios",
+                visible="(marginFree)",
+                rows=0,
                 clearWith=list(
                     "rows",
                     "cols",
+                    "counts",
                     "confLevel",
-                    "yulesQ",
-                    "yulesY",
-                    "oddsRatio"),
+                    "marginFree"),
                 columns=list(
                     list(
                         `name`="comparison", 
                         `title`="Comparison", 
                         `type`="text"),
                     list(
-                        `name`="measure", 
-                        `title`="Measure", 
-                        `type`="text"),
-                    list(
                         `name`="value", 
-                        `title`="Value", 
+                        `title`="OR", 
                         `type`="number"),
                     list(
                         `name`="lowerCI", 
@@ -497,22 +479,96 @@ chisqassocResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
                         `name`="effectSize", 
                         `title`="Effect Size", 
                         `type`="text"))))
-            self$add(jmvcore::Html$new(
+            self$add(jmvcore::Table$new(
                 options=options,
-                name="unilateralWarning",
-                title="",
-                visible=FALSE,
+                name="pairwiseQTable",
+                title="Pairwise Yule's Q",
+                visible="(marginFree)",
+                rows=0,
                 clearWith=list(
                     "rows",
-                    "cols")))
+                    "cols",
+                    "counts",
+                    "confLevel",
+                    "marginFree"),
+                columns=list(
+                    list(
+                        `name`="comparison", 
+                        `title`="Comparison", 
+                        `type`="text"),
+                    list(
+                        `name`="value", 
+                        `title`="Q", 
+                        `type`="number"),
+                    list(
+                        `name`="lowerCI", 
+                        `title`="Lower CI", 
+                        `type`="number"),
+                    list(
+                        `name`="upperCI", 
+                        `title`="Upper CI", 
+                        `type`="number"),
+                    list(
+                        `name`="pvalue", 
+                        `title`="p", 
+                        `type`="number", 
+                        `format`="zto,pvalue"),
+                    list(
+                        `name`="effectSize", 
+                        `title`="Effect Size", 
+                        `type`="text"))))
+            self$add(jmvcore::Table$new(
+                options=options,
+                name="pairwiseYTable",
+                title="Pairwise Yule's Y",
+                visible="(marginFree)",
+                rows=0,
+                clearWith=list(
+                    "rows",
+                    "cols",
+                    "counts",
+                    "confLevel",
+                    "marginFree"),
+                columns=list(
+                    list(
+                        `name`="comparison", 
+                        `title`="Comparison", 
+                        `type`="text"),
+                    list(
+                        `name`="value", 
+                        `title`="Y", 
+                        `type`="number"),
+                    list(
+                        `name`="lowerCI", 
+                        `title`="Lower CI", 
+                        `type`="number"),
+                    list(
+                        `name`="upperCI", 
+                        `title`="Upper CI", 
+                        `type`="number"),
+                    list(
+                        `name`="pvalue", 
+                        `title`="p", 
+                        `type`="number", 
+                        `format`="zto,pvalue"),
+                    list(
+                        `name`="effectSize", 
+                        `title`="Effect Size", 
+                        `type`="text"))))
             self$add(jmvcore::Table$new(
                 options=options,
                 name="thresholdsTable",
                 title="Effect Size Interpretation Thresholds",
                 visible="(showThresholds)",
+                refs=list(
+                    "alberti2024",
+                    "cohen1988",
+                    "olivier2013",
+                    "reynolds1977"),
                 clearWith=list(
                     "rows",
                     "cols",
+                    "counts",
                     "phi",
                     "phiSigned",
                     "phiCorrected",
@@ -582,11 +638,7 @@ chisqassocResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
                     "oddsRatio",
                     "gkLambda",
                     "gkLambdaCorrected",
-                    "gkTau")))
-            self$add(jmvcore::Html$new(
-                options=options,
-                name="legendNote",
-                title="References"))}))
+                    "gkTau")))}))
 
 chisqassocBase <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
     "chisqassocBase",
@@ -695,16 +747,10 @@ chisqassocBase <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
 #'   of Maximum deviation). Displays a table of local association values without
 #'   confidence intervals. For bootstrap CIs, use the Post-hoc Analysis
 #'   facility.
-#' @param yulesQ TRUE or FALSE (default), compute Yule's Q with confidence
-#'   interval and p-value. For 2×2 tables: single value. For larger tables:
-#'   pairwise comparisons.
-#' @param yulesY TRUE or FALSE (default), compute Yule's Y with confidence
-#'   interval and p-value. For 2×2 tables: single value. For larger tables:
-#'   pairwise comparisons.
-#' @param oddsRatio TRUE or FALSE (default), compute Odds Ratio with
-#'   confidence interval and p-value. For 2×2 tables: single value with optional
-#'   interpretation based on reference categories. For larger tables:
-#'   independent odds ratios.
+#' @param marginFree TRUE or FALSE (default), compute margin-free measures:
+#'   Odds Ratio,  Yule's Q, and Yule's Y. For 2×2 tables: single values appear
+#'   in the  summary table. For larger tables: pairwise comparisons in separate
+#'   tables.
 #' @param rowRef The row level selected as the category of interest.
 #' @param colRef The column level selected as the category of interest.
 #' @param gkLambda TRUE or FALSE (default), compute Goodman-Kruskal Lambda
@@ -713,7 +759,7 @@ chisqassocBase <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
 #'   Goodman-Kruskal Lambda
 #' @param gkTau TRUE or FALSE (default), compute Goodman-Kruskal Tau
 #'   (asymmetric) with confidence interval
-#' @param confLevel confidence level for confidence intervals (default: 0.95)
+#' @param confLevel confidence level as a percentage (default: 95)
 #' @param bootstrapReps number of bootstrap replications for computing
 #'   confidence intervals. Applies to: Phi corrected, C adjusted, C corrected, V
 #'   corrected, W-hat, W-hat corrected, Sakoda's D, and Sakoda's D corrected.
@@ -730,17 +776,15 @@ chisqassocBase <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
 #' @return A results object containing:
 #' \tabular{llllll}{
 #'   \code{results$crosstabTable} \tab \tab \tab \tab \tab a table \cr
-#'   \code{results$orInterpretation} \tab \tab \tab \tab \tab a html \cr
 #'   \code{results$chisqMaxTable} \tab \tab \tab \tab \tab a table \cr
 #'   \code{results$standardisedTable} \tab \tab \tab \tab \tab a table \cr
 #'   \code{results$resultsTable} \tab \tab \tab \tab \tab a table \cr
 #'   \code{results$sakodaLocalTable} \tab \tab \tab \tab \tab a table \cr
-#'   \code{results$sakodaLocalNote} \tab \tab \tab \tab \tab a html \cr
-#'   \code{results$pairwiseTable} \tab \tab \tab \tab \tab a table \cr
-#'   \code{results$unilateralWarning} \tab \tab \tab \tab \tab a html \cr
+#'   \code{results$pairwiseORTable} \tab \tab \tab \tab \tab a table \cr
+#'   \code{results$pairwiseQTable} \tab \tab \tab \tab \tab a table \cr
+#'   \code{results$pairwiseYTable} \tab \tab \tab \tab \tab a table \cr
 #'   \code{results$thresholdsTable} \tab \tab \tab \tab \tab a table \cr
 #'   \code{results$methodInfo} \tab \tab \tab \tab \tab a html \cr
-#'   \code{results$legendNote} \tab \tab \tab \tab \tab a html \cr
 #' }
 #'
 #' Tables can be converted to data frames with \code{asDF} or \code{\link{as.data.frame}}. For example:
@@ -773,15 +817,13 @@ chisqassoc <- function(
     sakoda = FALSE,
     sakodaCorrected = FALSE,
     sakodaLocal = FALSE,
-    yulesQ = FALSE,
-    yulesY = FALSE,
-    oddsRatio = FALSE,
+    marginFree = FALSE,
     rowRef,
     colRef,
     gkLambda = FALSE,
     gkLambdaCorrected = FALSE,
     gkTau = FALSE,
-    confLevel = 0.95,
+    confLevel = 95,
     bootstrapReps = 999,
     seed = 123,
     showChisqMax = FALSE,
@@ -827,9 +869,7 @@ chisqassoc <- function(
         sakoda = sakoda,
         sakodaCorrected = sakodaCorrected,
         sakodaLocal = sakodaLocal,
-        yulesQ = yulesQ,
-        yulesY = yulesY,
-        oddsRatio = oddsRatio,
+        marginFree = marginFree,
         rowRef = rowRef,
         colRef = colRef,
         gkLambda = gkLambda,

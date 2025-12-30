@@ -239,34 +239,15 @@ options:
             Displays a table of local association values without confidence intervals.
             For bootstrap CIs, use the Post-hoc Analysis facility.
     
-    # Margin-free measures
-    - name: yulesQ
-      title: Yule's Q
+    - name: marginFree
+      title: Margin-Free Measures (OR, Q, Y)
       type: Bool
       default: false
       description:
           R: >
-            TRUE or FALSE (default), compute Yule's Q with confidence interval and p-value.
-            For 2×2 tables: single value. For larger tables: pairwise comparisons.
-
-    - name: yulesY
-      title: Yule's Y
-      type: Bool
-      default: false
-      description:
-          R: >
-            TRUE or FALSE (default), compute Yule's Y with confidence interval and p-value.
-            For 2×2 tables: single value. For larger tables: pairwise comparisons.
-
-    - name: oddsRatio
-      title: Odds Ratio
-      type: Bool
-      default: false
-      description:
-          R: >
-            TRUE or FALSE (default), compute Odds Ratio with confidence interval and p-value.
-            For 2×2 tables: single value with optional interpretation based on reference
-            categories. For larger tables: independent odds ratios.
+            TRUE or FALSE (default), compute margin-free measures: Odds Ratio, 
+            Yule's Q, and Yule's Y. For 2×2 tables: single values appear in the 
+            summary table. For larger tables: pairwise comparisons in separate tables.
 
     - name: rowRef
       title: Row category of interest (OR)
@@ -315,12 +296,12 @@ options:
     - name: confLevel
       title: Confidence Level
       type: Number
-      min: 0.5
-      max: 0.999
-      default: 0.95
+      min: 50
+      max: 99.9
+      default: 95
       description:
           R: >
-            confidence level for confidence intervals (default: 0.95)
+            confidence level as a percentage (default: 95)
 
     - name: bootstrapReps
       title: Bootstrap Replications

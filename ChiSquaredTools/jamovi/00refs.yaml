@@ -1,0 +1,711 @@
+---
+refs:
+    agresti2013:
+        type: 'book'
+        author: 'Agresti, A.'
+        year: 2013
+        title: 'Categorical Data Analysis'
+        publisher: 'Wiley'
+        edition: '3rd'
+
+    agresti2022:
+        type: 'book'
+        author: 'Agresti, A., Franklin, C., & Klingenberg, B.'
+        year: 2022
+        title: 'Statistics: The Art and Science of Learning from Data'
+        publisher: 'Pearson Education'
+        edition: '5th'
+
+    alberti2024:
+        type: 'book'
+        author: 'Alberti, G.'
+        year: 2024
+        title: 'From Data to Insights. A Beginner''s Guide to Cross-Tabulation Analysis'
+        publisher: 'Chapman & Hall'
+
+    azen2021:
+        type: 'book'
+        author: 'Azen, R., & Walker, C. M.'
+        year: 2021
+        title: 'Categorical Data Analysis for the Behavioral and Social Sciences'
+        publisher: 'Routledge'
+        edition: '2nd'
+
+    beh2014:
+        type: 'book'
+        author: 'Beh, E. J., & Lombardo, R.'
+        year: 2014
+        title: 'Correspondence Analysis: Theory, Practice and New Strategies'
+        publisher: 'Wiley'
+
+    bendixen1995:
+        type: 'article'
+        author: 'Bendixen, M. T.'
+        year: 1995
+        title: 'Compositional perceptual mapping using chi-squared trees analysis and correspondence analysis'
+        publisher: 'Journal of Marketing Management'
+        volume: 11
+        pages: '571-581'
+
+    bergsma2013:
+        type: 'article'
+        author: 'Bergsma, W.'
+        year: 2013
+        title: 'A bias correction for Cramér''s V and Tschuprow''s T'
+        publisher: 'Journal of the Korean Statistical Society'
+        volume: 42
+        issue: 3
+        pages: '323-328'
+
+    berry2018:
+        type: 'book'
+        author: 'Berry, K. J., Johnston, J. E., & Mielke, P. W.'
+        year: 2018
+        title: 'The Measurement of Association: A Permutation Statistical Approach'
+        publisher: 'Springer'
+
+    bishop2007:
+        type: 'book'
+        author: 'Bishop, Y. M., Fienberg, S. E., & Holland, P. W.'
+        year: 2007
+        title: 'Discrete Multivariate Analysis: Theory and Practice'
+        publisher: 'Springer'
+
+    blaikie2003:
+        type: 'book'
+        author: 'Blaikie, N.'
+        year: 2003
+        title: 'Analyzing Quantitative Data: From Description to Explanation'
+        publisher: 'SAGE Publications Ltd'
+
+    blalock1979:
+        type: 'book'
+        author: 'Blalock, H. M.'
+        year: 1979
+        title: 'Social Statistics'
+        publisher: 'McGraw-Hill'
+        edition: 'Rev. 2nd'
+
+    bonett2007:
+        type: 'article'
+        author: 'Bonett, D. G., & Price, R. M.'
+        year: 2007
+        title: 'Statistical Inference for Generalized Yule Coefficients in 2 x 2 Contingency Tables'
+        publisher: 'Sociological Methods & Research'
+        volume: 35
+        issue: 3
+        pages: '429-446'
+
+    breslowday1980:
+        type: 'book'
+        author: 'Breslow, N. E., & Day, N. E.'
+        year: 1980
+        title: 'Statistical Methods in Cancer Research. Volume I: The Analysis of Case-Control Studies'
+        publisher: 'IARC Scientific Publications'
+
+    bruner1976:
+        type: 'article'
+        author: 'Bruner, J.'
+        year: 1976
+        title: 'What''s the Question to That Answer? Measures and Marginals in Crosstabulation'
+        publisher: 'American Journal of Political Science'
+        volume: 20
+        issue: 4
+        pages: '781-804'
+
+    buchanan1974:
+        type: 'article'
+        author: 'Buchanan, W.'
+        year: 1974
+        title: 'Nominal and Ordinal Bivariate Statistics: The Practitioner''s View'
+        publisher: 'American Journal of Political Science'
+        volume: 18
+        issue: 3
+        pages: '625-646'
+
+    campbell2007:
+        type: 'article'
+        author: 'Campbell, I.'
+        year: 2007
+        title: 'Chi-squared and Fisher–Irwin tests of two-by-two tables with small sample recommendations'
+        publisher: 'Statistics in Medicine'
+        volume: 26
+        issue: 19
+        pages: '3661-3675'
+
+    cibois1993:
+        type: 'article'
+        author: 'Cibois, P.'
+        year: 1993
+        title: 'Le PEM, pourcentage de l''écart maximum: Un indice de liaison entre modalités d''un tableau de contingence'
+        publisher: 'Bulletin de Methodologie Sociologique'
+        volume: 40
+        pages: '43-63'
+
+    cohen1988:
+        type: 'book'
+        author: 'Cohen, J.'
+        year: 1988
+        title: 'Statistical Power Analysis for the Behavioral Sciences'
+        publisher: 'Erlbaum'
+        edition: '2nd'
+
+    cohen1992:
+        type: 'article'
+        author: 'Cohen, J.'
+        year: 1992
+        title: 'A power primer'
+        publisher: 'Psychological Bulletin'
+        volume: 112
+        issue: 1
+        pages: '155-159'
+
+    cole1949:
+        type: 'article'
+        author: 'Cole, L. C.'
+        year: 1949
+        title: 'The measurement of interspecific association'
+        publisher: 'Ecology'
+        volume: 30
+        issue: 4
+        pages: '411-424'
+
+    cramer1946:
+        type: 'book'
+        author: 'Cramér, H.'
+        year: 1946
+        title: 'Mathematical Methods of Statistics'
+        publisher: 'Princeton University Press'
+
+    cummingfinch2005:
+        type: 'article'
+        author: 'Cumming, G., & Finch, S.'
+        year: 2005
+        title: 'Inference by eye: Confidence intervals and how to read pictures of data'
+        publisher: 'American Psychologist'
+        volume: 60
+        issue: 2
+        pages: '170-180'
+
+    cureton1959:
+        type: 'article'
+        author: 'Cureton, E. E.'
+        year: 1959
+        title: 'Note on phi/phimax'
+        publisher: 'Psychometrika'
+        volume: 24
+        issue: 1
+        pages: '89-91'
+
+    davenport1991:
+        type: 'article'
+        author: 'Davenport, E. C., & El-Sanhurry, N. A.'
+        year: 1991
+        title: 'Phi/Phimax: Review and synthesis'
+        publisher: 'Educational and Psychological Measurement'
+        volume: 51
+        issue: 4
+        pages: '821-828'
+
+    davis1971:
+        type: 'book'
+        author: 'Davis, J. A.'
+        year: 1971
+        title: 'Elementary Survey Analysis'
+        publisher: 'Prentice Hall'
+
+    ferguson2009:
+        type: 'article'
+        author: 'Ferguson, C. J.'
+        year: 2009
+        title: 'An effect size primer: A guide for clinicians and researchers'
+        publisher: 'Professional Psychology: Research and Practice'
+        volume: 40
+        issue: 5
+        pages: '532-538'
+
+    fienberg1971:
+        type: 'article'
+        author: 'Fienberg, S. E.'
+        year: 1971
+        title: 'A statistical technique for historians: Standardizing tables of counts'
+        publisher: 'The Journal of Interdisciplinary History'
+        volume: 1
+        issue: 2
+        pages: '305-315'
+
+    fleiss2003:
+        type: 'book'
+        author: 'Fleiss, J. L., Levin, B., & Paik, M. C.'
+        year: 2003
+        title: 'Statistical Methods for Rates and Proportions'
+        publisher: 'Wiley'
+        edition: '3rd'
+
+    fuchs1980:
+        type: 'article'
+        author: 'Fuchs, C., & Kenett, R.'
+        year: 1980
+        title: 'A test for detecting outlying cells in the multinomial distribution and two-way contingency tables'
+        publisher: 'Journal of the American Statistical Association'
+        volume: 75
+        issue: 370
+        pages: '395-398'
+        
+    gambirasio2024:
+        type: 'article'
+        author: 'Gambirasio, G.'
+        year: 2024
+        title: 'DEP: A new measure of dependence in contingency tables'
+        publisher: '[journal name]'
+        volume: '[volume]'
+        pages: '[pages]'
+
+
+    garciaperez2003:
+        type: 'article'
+        author: 'Garcia-Perez, M. A., & Nunez-Anton, V.'
+        year: 2003
+        title: 'Cellwise residual analysis in two-way contingency tables'
+        publisher: 'Educational and Psychological Measurement'
+        volume: 63
+        issue: 5
+        pages: '825-839'
+    
+    good1956:
+        type: 'article'
+        author: 'Good, I. J.'
+        year: 1956
+        title: 'On the estimation of small frequencies in contingency tables'
+        publisher: 'Journal of the Royal Statistical Society, Series B'
+        volume: 18
+        issue: 1
+        pages: '113-124'
+
+    goodman1954:
+        type: 'article'
+        author: 'Goodman, L. A., & Kruskal, W. H.'
+        year: 1954
+        title: 'Measures of association for cross classifications'
+        publisher: 'Journal of the American Statistical Association'
+        volume: 49
+        issue: 268
+        pages: '732-764'
+
+    goodman1972:
+        type: 'article'
+        author: 'Goodman, L. A., & Kruskal, W. H.'
+        year: 1972
+        title: 'Measures of association for cross classifications, IV: Simplification of asymptotic variances'
+        publisher: 'Journal of the American Statistical Association'
+        volume: 67
+        issue: 338
+        pages: '415-421'
+
+    goodman1979:
+        type: 'book'
+        author: 'Goodman, L. A., & Kruskal, W. H.'
+        year: 1979
+        title: 'Measures of Association for Cross Classifications'
+        publisher: 'Springer-Verlag'
+
+    greenacre1988:
+        type: 'article'
+        author: 'Greenacre, M.'
+        year: 1988
+        title: 'Clustering the rows and columns of a contingency table'
+        publisher: 'Journal of Classification'
+        volume: 5
+        pages: '39-51'
+
+    greenacre2017:
+        type: 'book'
+        author: 'Greenacre, M.'
+        year: 2017
+        title: 'Correspondence Analysis in Practice'
+        publisher: 'Chapman & Hall/CRC'
+        edition: '3rd'
+
+    greenwood1996:
+        type: 'book'
+        author: 'Greenwood, P. E., & Nikulin, M. S.'
+        year: 1996
+        title: 'A Guide to Chi-Squared Testing'
+        publisher: 'Wiley'
+
+    haberman1973:
+        type: 'article'
+        author: 'Haberman, S. J.'
+        year: 1973
+        title: 'The analysis of residuals in cross-classified tables'
+        publisher: 'Biometrics'
+        volume: 29
+        issue: 1
+        pages: '205-220'
+
+    hirotsu1983:
+        type: 'article'
+        author: 'Hirotsu, C.'
+        year: 1983
+        title: 'Defining the pattern of association in two-way contingency tables'
+        publisher: 'Biometrika'
+        volume: 70
+        issue: 3
+        pages: '579-589'
+
+    hoenig2001:
+        type: 'article'
+        author: 'Hoenig, J. M., & Heisey, D. M.'
+        year: 2001
+        title: 'The abuse of power: The pervasive fallacy of power calculations for data analysis'
+        publisher: 'The American Statistician'
+        volume: 55
+        issue: 1
+        pages: '19-24'
+
+    howell2011:
+        type: 'book'
+        author: 'Howell, D. C.'
+        year: 2011
+        title: 'Statistical Methods for Psychology'
+        publisher: 'Wadsworth Publishing'
+        edition: '8th'
+
+    hussonetal2017:
+       type: book
+       author: Husson, F., Lê, S., & Pagès, J.
+       year: 2017
+       title: "Exploratory Multivariate Analysis by Example Using R"
+       edition: 2nd
+       publisher: CRC Press
+       address: Boca Raton, FL
+
+    kendall1961:
+        type: 'book'
+        author: 'Kendall, M. G., & Stuart, A.'
+        year: 1961
+        title: 'The Advanced Theory of Statistics: Volume 2 - Inference and Relationship'
+        publisher: 'Hafner Publishing Company'
+
+    kvalseth2018a:
+        type: 'article'
+        author: 'Kvålseth, T. O.'
+        year: 2018
+        title: 'An alternative to Cramér''s coefficient of association'
+        publisher: 'Communications in Statistics - Theory and Methods'
+        volume: 47
+        issue: 23
+        pages: '5662-5674'
+
+    kvalseth2018b:
+        type: 'article'
+        author: 'Kvålseth, T. O.'
+        year: 2018
+        title: 'Measuring association between nominal categorical variables: An alternative to the Goodman-Kruskal lambda'
+        publisher: 'Journal of Applied Statistics'
+        volume: 45
+        issue: 6
+        pages: '1118-1132'
+        
+    kroonenberglombardo1999:
+        type: 'article'
+        author: 'Kroonenberg, P. M., & Lombardo, R.'
+        year: 1999
+        title: 'Nonsymmetric correspondence analysis: A tool for analysing contingency tables with a dependence structure'
+        publisher: 'Multivariate Behavioral Research'
+        volume: 34
+        issue: 3
+        pages: '367-396'
+
+    lachin2000:
+        type: 'book'
+        author: 'Lachin, J. M.'
+        year: 2000
+        title: 'Biostatistical Methods: The Assessment of Relative Risks'
+        publisher: 'Wiley'
+        
+    lefevrechampely2009:
+        type: 'article'
+        author: 'Lefèvre, B., & Champely, S.'
+        year: 2009
+        title: 'The Social Segmentation of Sporting Practices in France'
+        publisher: 'Journal of Sport and Social Issues'
+        volume: 33
+        issue: 1
+        pages: '42-63'
+
+    lin2015:
+        type: 'article'
+        author: 'Lin, J.-J., Chang, C.-H., & Pal, N.'
+        year: 2015
+        title: 'A revisit to contingency table and tests of independence: Bootstrap is preferred to chi-square approximations as well as Fisher''s exact test'
+        publisher: 'Journal of Biopharmaceutical Statistics'
+        volume: 25
+        issue: 3
+        pages: '438-458'
+
+    liu1980:
+        type: 'article'
+        author: 'Liu, R.'
+        year: 1980
+        title: 'A note on phi-coefficient comparison'
+        publisher: 'Research in Higher Education'
+        volume: 13
+        issue: 1
+        pages: '3-8'
+        
+    mirkin2001:
+        type: 'article'
+        author: 'Mirkin, B.'
+        year: 2001
+        title: 'Eleven ways to look at the chi-squared coefficient for contingency tables'
+        publisher: 'The American Statistician'
+        volume: 55
+        issue: 2
+        pages: '111-120'
+
+    mirkin2023:
+        type: 'book'
+        author: 'Mirkin, B.'
+        year: 2023
+        title: 'Core Data Analysis: Summarization, Correlation, and Visualization'
+        publisher: 'Springer'
+        edition: '3rd'
+    
+    mostellerparunak1985:
+        type: 'book'
+        author: 'Mosteller, F., & Parunak, A.'
+        year: 1985
+        title: 'Identifying extreme cells in a sizable contingency table: Probabilistic and exploratory approaches. In D. C. Hoaglin, F. Mosteller, & J. W. Tukey (Eds.), Exploring Data Tables, Trends, and Shapes (pp. 189-224)'
+        publisher: 'Wiley'
+
+    mueller1961:
+        type: 'book'
+        author: 'Mueller, J. H., & Schuessler, K. F.'
+        year: 1961
+        title: 'Statistical Reasoning in Sociology'
+        publisher: 'Oxford & IBH Publishing Co.'
+
+    olivier2013:
+        type: 'article'
+        author: 'Olivier, J., & Bell, M. L.'
+        year: 2013
+        title: 'Effect sizes for 2×2 contingency tables'
+        publisher: 'PLoS ONE'
+        volume: 8
+        issue: 3
+        pages: 'e58777'
+
+    ott1992:
+        type: 'book'
+        author: 'Ott, R. L., Rexroat, C., Larson, R., & Mendenhall, W.'
+        year: 1992
+        title: 'Statistics: A Tool for the Social Sciences'
+        publisher: 'PWS-KENT Publishing Company'
+        edition: '5th'
+
+    pagano2018:
+        type: 'book'
+        author: 'Pagano, M., & Gauvreau, K.'
+        year: 2018
+        title: 'Principles of Biostatistics'
+        publisher: 'Chapman and Hall/CRC'
+        edition: '2nd'
+
+    pearsonhartley1972:
+        type: 'book'
+        author: 'Pearson, E. S., & Hartley, H. O.'
+        year: 1972
+        title: 'Biometrika Tables for Statisticians, Volume 2'
+        publisher: 'Cambridge University Press'
+
+    phipson2010:
+        type: 'article'
+        author: 'Phipson, B., & Smyth, G. K.'
+        year: 2010
+        title: 'Permutation p-values should never be zero: calculating exact p-values when permutations are randomly drawn'
+        publisher: 'Statistical Applications in Genetics and Molecular Biology'
+        volume: 9
+        issue: 1
+        pages: 'Article 39'
+
+    rasch2011:
+        type: 'book'
+        author: 'Rasch, D., Kubinger, K. D., & Yanagida, T.'
+        year: 2011
+        title: 'Statistics in Psychology Using R and SPSS'
+        publisher: 'Wiley'
+
+    ratliff1982:
+        type: 'article'
+        author: 'Ratliff, R. D.'
+        year: 1982
+        title: 'A correction of Cole''s C7 and Hurlbert''s C8 coefficients of interspecific association'
+        publisher: 'Ecology'
+        volume: 63
+        issue: 5
+        pages: '1605-1606'
+
+    reynolds1977:
+        type: 'book'
+        author: 'Reynolds, H. T.'
+        year: 1977
+        title: 'The Analysis of Cross-Classifications'
+        publisher: 'The Free Press'
+
+    rhoades1982:
+        type: 'article'
+        author: 'Rhoades, H. M., & Overall, J. E.'
+        year: 1982
+        title: 'A sample size correction for Pearson chi-squared in 2 × 2 contingency tables'
+        publisher: 'Psychological Bulletin'
+        volume: 91
+        issue: 2
+        pages: '418-423'
+
+    richardson2011:
+        type: 'article'
+        author: 'Richardson, J. T. E.'
+        year: 2011
+        title: 'The analysis of 2 × 2 contingency tables—yet again'
+        publisher: 'Statistics in Medicine'
+        volume: 30
+        issue: 8
+        pages: '890'
+
+    roscoe1971:
+        type: 'article'
+        author: 'Roscoe, J. T., & Byars, J. A.'
+        year: 1971
+        title: 'An investigation of the restraints with respect to sample size commonly imposed on the use of the chi-squared statistic'
+        publisher: 'Journal of the American Statistical Association'
+        volume: 66
+        issue: 336
+        pages: '755-759'
+
+    sakoda1981:
+        type: 'article'
+        author: 'Sakoda, J. M.'
+        year: 1981
+        title: 'A generalized index of dissimilarity'
+        publisher: 'Demography'
+        volume: 18
+        issue: 2
+        pages: '245-250'
+
+    sheskin2011:
+        type: 'book'
+        author: 'Sheskin, D. J.'
+        year: 2011
+        title: 'Handbook of Parametric and Nonparametric Statistical Procedures'
+        publisher: 'Chapman and Hall/CRC'
+        edition: '5th'
+        
+    simonoff1988:
+        type: 'article'
+        author: 'Simonoff, J. S.'
+        year: 1988
+        title: 'Detecting outlying cells in two-way contingency tables via backwards-stepping'
+        publisher: 'Technometrics'
+        volume: 30
+        issue: 3
+        pages: '339-345'
+    
+    simonoff2003:
+        type: 'book'
+        author: 'Simonoff, J. S.'
+        year: 2003
+        title: 'Analyzing Categorical Data'
+        publisher: 'Springer'
+
+    smith1976:
+        type: 'article'
+        author: 'Smith, K. W.'
+        year: 1976
+        title: 'Marginal standardization and table shrinking: Aids in the traditional analysis of contingency tables'
+        publisher: 'Social Forces'
+        volume: 54
+        issue: 3
+        pages: '669-693'
+
+    smithson2003:
+        type: 'book'
+        author: 'Smithson, M.'
+        year: 2003
+        title: 'Confidence Intervals'
+        publisher: 'Sage'
+
+    upton1982:
+        type: 'article'
+        author: 'Upton, G. J. G.'
+        year: 1982
+        title: 'A comparison of alternative tests for the 2 × 2 comparative trial'
+        publisher: 'Journal of the Royal Statistical Society, Series A'
+        volume: 145
+        issue: 1
+        pages: '86-105'
+
+    utts2014:
+        type: 'book'
+        author: 'Utts, J. M.'
+        year: 2014
+        title: 'Seeing Through Statistics'
+        publisher: 'Brooks/Cole'
+        edition: '4th'
+
+    voneye2003:
+        type: 'article'
+        author: 'von Eye, A., & Mun, E. Y.'
+        year: 2003
+        title: 'Characteristics of Measures for 2 x 2 Tables'
+        publisher: 'Understanding Statistics'
+        volume: 2
+        issue: 4
+        pages: '243-266'
+
+    ward1963:
+        type: 'article'
+        author: 'Ward, J. H.'
+        year: 1963
+        title: 'Hierarchical grouping to optimize an objective function'
+        publisher: 'Journal of the American Statistical Association'
+        volume: 58
+        issue: 301
+        pages: '236-244'
+
+    warrens2008:
+        type: 'article'
+        author: 'Warrens, M. J.'
+        year: 2008
+        title: 'A comment on Zysno''s The Modification of the Phi-coefficient Reducing its Dependence on the Marginal Distributions'
+        publisher: 'Methods of Psychological Research Online'
+        volume: 13
+        pages: '15-19'
+
+    yule1912:
+        type: 'article'
+        author: 'Yule, G. U.'
+        year: 1912
+        title: 'On the methods of measuring association between two attributes'
+        publisher: 'Journal of the Royal Statistical Society'
+        volume: 75
+        issue: 6
+        pages: '579-652'
+
+    zar2014:
+        type: 'book'
+        author: 'Zar, J. H.'
+        year: 2014
+        title: 'Biostatistical Analysis'
+        publisher: 'Pearson Education Limited'
+        edition: '5th'
+
+    zysno1997:
+        type: 'article'
+        author: 'Zysno, P. V.'
+        year: 1997
+        title: 'The modification of the phi-coefficient reducing its dependence on the marginal distributions'
+        publisher: 'Methods of Psychological Research Online'
+        volume: 2
+        pages: '41-52'
+...

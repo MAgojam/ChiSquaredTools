@@ -12,13 +12,9 @@ chisqstrata2x2Options <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Cl
             counts = NULL,
             rowRef = NULL,
             colRef = NULL,
-            showORAnnotation = TRUE,
-            showPartialChiSq = TRUE,
             showForestPlot = TRUE,
-            showDiagnosticSummary = TRUE,
             strataOrdered = FALSE,
             showTrajectoryPlot = TRUE,
-            showInterpretation = TRUE,
             showMethodInfo = FALSE, ...) {
 
             super$initialize(
@@ -64,21 +60,9 @@ chisqstrata2x2Options <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Cl
                 "colRef",
                 colRef,
                 variable="(cols)")
-            private$..showORAnnotation <- jmvcore::OptionBool$new(
-                "showORAnnotation",
-                showORAnnotation,
-                default=TRUE)
-            private$..showPartialChiSq <- jmvcore::OptionBool$new(
-                "showPartialChiSq",
-                showPartialChiSq,
-                default=TRUE)
             private$..showForestPlot <- jmvcore::OptionBool$new(
                 "showForestPlot",
                 showForestPlot,
-                default=TRUE)
-            private$..showDiagnosticSummary <- jmvcore::OptionBool$new(
-                "showDiagnosticSummary",
-                showDiagnosticSummary,
                 default=TRUE)
             private$..strataOrdered <- jmvcore::OptionBool$new(
                 "strataOrdered",
@@ -87,10 +71,6 @@ chisqstrata2x2Options <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Cl
             private$..showTrajectoryPlot <- jmvcore::OptionBool$new(
                 "showTrajectoryPlot",
                 showTrajectoryPlot,
-                default=TRUE)
-            private$..showInterpretation <- jmvcore::OptionBool$new(
-                "showInterpretation",
-                showInterpretation,
                 default=TRUE)
             private$..showMethodInfo <- jmvcore::OptionBool$new(
                 "showMethodInfo",
@@ -103,13 +83,9 @@ chisqstrata2x2Options <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Cl
             self$.addOption(private$..counts)
             self$.addOption(private$..rowRef)
             self$.addOption(private$..colRef)
-            self$.addOption(private$..showORAnnotation)
-            self$.addOption(private$..showPartialChiSq)
             self$.addOption(private$..showForestPlot)
-            self$.addOption(private$..showDiagnosticSummary)
             self$.addOption(private$..strataOrdered)
             self$.addOption(private$..showTrajectoryPlot)
-            self$.addOption(private$..showInterpretation)
             self$.addOption(private$..showMethodInfo)
         }),
     active = list(
@@ -119,13 +95,9 @@ chisqstrata2x2Options <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Cl
         counts = function() private$..counts$value,
         rowRef = function() private$..rowRef$value,
         colRef = function() private$..colRef$value,
-        showORAnnotation = function() private$..showORAnnotation$value,
-        showPartialChiSq = function() private$..showPartialChiSq$value,
         showForestPlot = function() private$..showForestPlot$value,
-        showDiagnosticSummary = function() private$..showDiagnosticSummary$value,
         strataOrdered = function() private$..strataOrdered$value,
         showTrajectoryPlot = function() private$..showTrajectoryPlot$value,
-        showInterpretation = function() private$..showInterpretation$value,
         showMethodInfo = function() private$..showMethodInfo$value),
     private = list(
         ..rows = NA,
@@ -134,13 +106,9 @@ chisqstrata2x2Options <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Cl
         ..counts = NA,
         ..rowRef = NA,
         ..colRef = NA,
-        ..showORAnnotation = NA,
-        ..showPartialChiSq = NA,
         ..showForestPlot = NA,
-        ..showDiagnosticSummary = NA,
         ..strataOrdered = NA,
         ..showTrajectoryPlot = NA,
-        ..showInterpretation = NA,
         ..showMethodInfo = NA)
 )
 
@@ -149,32 +117,38 @@ chisqstrata2x2Results <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Cl
     inherit = jmvcore::Group,
     active = list(
         partialTablesGroup = function() private$.items[["partialTablesGroup"]],
-        marginalTableHeader = function() private$.items[["marginalTableHeader"]],
         marginalTable = function() private$.items[["marginalTable"]],
-        marginalORAnnotation = function() private$.items[["marginalORAnnotation"]],
-        analysisResultsHeader = function() private$.items[["analysisResultsHeader"]],
         partialChiSqTable = function() private$.items[["partialChiSqTable"]],
         oddsRatioTable = function() private$.items[["oddsRatioTable"]],
         cmhTestTable = function() private$.items[["cmhTestTable"]],
         homogeneityTable = function() private$.items[["homogeneityTable"]],
-        interpretationGuideHeader = function() private$.items[["interpretationGuideHeader"]],
-        interpretationNote = function() private$.items[["interpretationNote"]],
-        diagnosticSummary = function() private$.items[["diagnosticSummary"]],
+        interpretationTable = function() private$.items[["interpretationTable"]],
         forestPlot = function() private$.items[["forestPlot"]],
         trajectoryPlot = function() private$.items[["trajectoryPlot"]],
-        methodInfo = function() private$.items[["methodInfo"]],
-        legendNote = function() private$.items[["legendNote"]]),
+        methodInfo = function() private$.items[["methodInfo"]]),
     private = list(),
     public=list(
         initialize=function(options) {
             super$initialize(
                 options=options,
                 name="",
-                title="Stratified Analysis (2×2×K)")
+                title="Stratified Analysis (2×2×K)",
+                refs=list(
+                    "agresti2013",
+                    "alberti2024",
+                    "azen2021",
+                    "breslowday1980",
+                    "davis1971",
+                    "fleiss2003",
+                    "lachin2000",
+                    "ott1992",
+                    "pagano2018",
+                    "reynolds1977",
+                    "sheskin2011"))
             self$add(jmvcore::Array$new(
                 options=options,
                 name="partialTablesGroup",
-                title="Partial Tables (Strata)",
+                title="",
                 template=jmvcore::Table$new(
                     options=options,
                     title="Partial Table",
@@ -186,11 +160,6 @@ chisqstrata2x2Results <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Cl
                     "counts",
                     "rowRef",
                     "colRef")))
-            self$add(jmvcore::Html$new(
-                options=options,
-                name="marginalTableHeader",
-                title="",
-                visible=TRUE))
             self$add(jmvcore::Table$new(
                 options=options,
                 name="marginalTable",
@@ -200,28 +169,10 @@ chisqstrata2x2Results <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Cl
                     "strata",
                     "counts"),
                 columns=list()))
-            self$add(jmvcore::Html$new(
-                options=options,
-                name="marginalORAnnotation",
-                title="",
-                visible="(showORAnnotation)",
-                clearWith=list(
-                    "rows",
-                    "cols",
-                    "strata",
-                    "counts",
-                    "rowRef",
-                    "colRef")))
-            self$add(jmvcore::Html$new(
-                options=options,
-                name="analysisResultsHeader",
-                title="",
-                visible=TRUE))
             self$add(jmvcore::Table$new(
                 options=options,
                 name="partialChiSqTable",
                 title="Chi-Squared Tests",
-                visible="(showPartialChiSq)",
                 clearWith=list(
                     "rows",
                     "cols",
@@ -244,7 +195,9 @@ chisqstrata2x2Results <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Cl
                         `name`="pvalue", 
                         `title`="p", 
                         `type`="number", 
-                        `format`="zto,pvalue"))))
+                        `format`="zto,pvalue")),
+                refs=list(
+                    "ott1992")))
             self$add(jmvcore::Table$new(
                 options=options,
                 name="oddsRatioTable",
@@ -274,7 +227,12 @@ chisqstrata2x2Results <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Cl
                         `name`="ciUpper", 
                         `title`="Upper", 
                         `superTitle`="95% CI", 
-                        `type`="number"))))
+                        `type`="number")),
+                refs=list(
+                    "azen2021",
+                    "cummingfinch2005",
+                    "lachin2000",
+                    "pagano2018")))
             self$add(jmvcore::Table$new(
                 options=options,
                 name="cmhTestTable",
@@ -315,7 +273,9 @@ chisqstrata2x2Results <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Cl
                         `name`="commonCIUpper", 
                         `title`="Upper", 
                         `superTitle`="95% CI", 
-                        `type`="number"))))
+                        `type`="number")),
+                refs=list(
+                    "azen2021")))
             self$add(jmvcore::Table$new(
                 options=options,
                 name="homogeneityTable",
@@ -342,41 +302,39 @@ chisqstrata2x2Results <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Cl
                         `name`="pvalue", 
                         `title`="p", 
                         `type`="number", 
-                        `format`="zto,pvalue"))))
-            self$add(jmvcore::Html$new(
+                        `format`="zto,pvalue")),
+                refs=list(
+                    "azen2021",
+                    "breslowday1980",
+                    "pagano2018",
+                    "sheskin2011")))
+            self$add(jmvcore::Table$new(
                 options=options,
-                name="interpretationGuideHeader",
-                title="",
-                visible="(showInterpretation)"))
-            self$add(jmvcore::Html$new(
-                options=options,
-                name="interpretationNote",
-                title="Interpretation",
-                visible="(showInterpretation)",
+                name="interpretationTable",
+                title="Interpretation Summary",
                 clearWith=list(
                     "rows",
                     "cols",
                     "strata",
                     "counts",
                     "rowRef",
-                    "colRef")))
-            self$add(jmvcore::Html$new(
-                options=options,
-                name="diagnosticSummary",
-                title="Diagnostic Summary",
-                visible="(showDiagnosticSummary)",
-                clearWith=list(
-                    "rows",
-                    "cols",
-                    "strata",
-                    "counts")))
+                    "colRef"),
+                columns=list(
+                    list(
+                        `name`="topic", 
+                        `title`="Aspect", 
+                        `type`="text"),
+                    list(
+                        `name`="result", 
+                        `title`="Result", 
+                        `type`="text"))))
             self$add(jmvcore::Image$new(
                 options=options,
                 name="forestPlot",
                 title="Forest Plot of Odds Ratios",
                 visible="(showForestPlot)",
                 width=700,
-                height=400,
+                height=550,
                 renderFun=".forestPlot",
                 requiresData=TRUE,
                 clearWith=list(
@@ -411,11 +369,10 @@ chisqstrata2x2Results <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Cl
                 clearWith=list(
                     "rows",
                     "cols",
-                    "strata")))
-            self$add(jmvcore::Html$new(
-                options=options,
-                name="legendNote",
-                title="References"))}))
+                    "strata",
+                    "counts",
+                    "rowRef",
+                    "colRef")))}))
 
 chisqstrata2x2Base <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
     "chisqstrata2x2Base",
@@ -499,43 +456,28 @@ chisqstrata2x2Base <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class
 #'   case).
 #' @param rowRef The row level selected as the category of interest.
 #' @param colRef The column level selected as the category of interest.
-#' @param showORAnnotation TRUE or FALSE (default: TRUE), display a
-#'   plain-language interpretation of the odds ratio beneath each partial table
-#'   and the marginal table.
-#' @param showPartialChiSq TRUE or FALSE (default: TRUE), display chi-squared
-#'   test results for each partial table in addition to the summary.
 #' @param showForestPlot TRUE or FALSE (default: TRUE), display a forest plot
 #'   showing stratum-specific odds ratios with 95\% confidence intervals and the
 #'   common Mantel-Haenszel odds ratio.
-#' @param showDiagnosticSummary TRUE or FALSE (default: TRUE), display a
-#'   textual summary of the analytical outcome.
 #' @param strataOrdered TRUE or FALSE (default: FALSE), treat the stratifying
 #'   variable as having a natural ordering. When enabled, allows trajectory plot
 #'   visualisation and ordered axis labels.
 #' @param showTrajectoryPlot TRUE or FALSE (default: TRUE), display an odds
 #'   ratio trajectory plot when the stratifying variable is marked as ordered.
-#' @param showInterpretation TRUE or FALSE (default: TRUE), display the
-#'   detailed interpretation guide based on the pattern of test results.
 #' @param showMethodInfo TRUE or FALSE (default: FALSE), display detailed
 #'   methodological  explanations for all tests performed.
 #' @return A results object containing:
 #' \tabular{llllll}{
 #'   \code{results$partialTablesGroup} \tab \tab \tab \tab \tab an array of tables \cr
-#'   \code{results$marginalTableHeader} \tab \tab \tab \tab \tab a html \cr
 #'   \code{results$marginalTable} \tab \tab \tab \tab \tab a table \cr
-#'   \code{results$marginalORAnnotation} \tab \tab \tab \tab \tab a html \cr
-#'   \code{results$analysisResultsHeader} \tab \tab \tab \tab \tab a html \cr
 #'   \code{results$partialChiSqTable} \tab \tab \tab \tab \tab a table \cr
 #'   \code{results$oddsRatioTable} \tab \tab \tab \tab \tab a table \cr
 #'   \code{results$cmhTestTable} \tab \tab \tab \tab \tab a table \cr
 #'   \code{results$homogeneityTable} \tab \tab \tab \tab \tab a table \cr
-#'   \code{results$interpretationGuideHeader} \tab \tab \tab \tab \tab a html \cr
-#'   \code{results$interpretationNote} \tab \tab \tab \tab \tab a html \cr
-#'   \code{results$diagnosticSummary} \tab \tab \tab \tab \tab a html \cr
+#'   \code{results$interpretationTable} \tab \tab \tab \tab \tab a table \cr
 #'   \code{results$forestPlot} \tab \tab \tab \tab \tab an image \cr
 #'   \code{results$trajectoryPlot} \tab \tab \tab \tab \tab an image \cr
 #'   \code{results$methodInfo} \tab \tab \tab \tab \tab a html \cr
-#'   \code{results$legendNote} \tab \tab \tab \tab \tab a html \cr
 #' }
 #'
 #' Tables can be converted to data frames with \code{asDF} or \code{\link{as.data.frame}}. For example:
@@ -553,13 +495,9 @@ chisqstrata2x2 <- function(
     counts,
     rowRef,
     colRef,
-    showORAnnotation = TRUE,
-    showPartialChiSq = TRUE,
     showForestPlot = TRUE,
-    showDiagnosticSummary = TRUE,
     strataOrdered = FALSE,
     showTrajectoryPlot = TRUE,
-    showInterpretation = TRUE,
     showMethodInfo = FALSE) {
 
     if ( ! requireNamespace("jmvcore", quietly=TRUE))
@@ -588,13 +526,9 @@ chisqstrata2x2 <- function(
         counts = counts,
         rowRef = rowRef,
         colRef = colRef,
-        showORAnnotation = showORAnnotation,
-        showPartialChiSq = showPartialChiSq,
         showForestPlot = showForestPlot,
-        showDiagnosticSummary = showDiagnosticSummary,
         strataOrdered = strataOrdered,
         showTrajectoryPlot = showTrajectoryPlot,
-        showInterpretation = showInterpretation,
         showMethodInfo = showMethodInfo)
 
     analysis <- chisqstrata2x2Class$new(

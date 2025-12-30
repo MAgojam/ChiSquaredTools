@@ -125,24 +125,6 @@ options:
           ui: Select the column category to use as the category of interest for odds ratio calculation.
           R: The column level selected as the category of interest.
 
-    - name: showORAnnotation
-      title: Show odds ratio interpretation beneath tables
-      type: Bool
-      default: true
-      description:
-          R: >
-            TRUE or FALSE (default: TRUE), display a plain-language interpretation
-            of the odds ratio beneath each partial table and the marginal table.
-
-    - name: showPartialChiSq
-      title: Show stratum-specific chi-squared results
-      type: Bool
-      default: true
-      description:
-          R: >
-            TRUE or FALSE (default: TRUE), display chi-squared test results
-            for each partial table in addition to the summary.
-
     - name: showForestPlot
       title: Display forest plot of odds ratios
       type: Bool
@@ -152,15 +134,6 @@ options:
             TRUE or FALSE (default: TRUE), display a forest plot showing
             stratum-specific odds ratios with 95% confidence intervals and
             the common Mantel-Haenszel odds ratio.
-
-    - name: showDiagnosticSummary
-      title: Show diagnostic summary
-      type: Bool
-      default: true
-      description:
-          R: >
-            TRUE or FALSE (default: TRUE), display a textual summary
-            of the analytical outcome.
 
     - name: strataOrdered
       title: Treat stratifying variable as ordered
@@ -180,15 +153,6 @@ options:
           R: >
             TRUE or FALSE (default: TRUE), display an odds ratio trajectory
             plot when the stratifying variable is marked as ordered.
-
-    - name: showInterpretation
-      title: Show interpretation guide
-      type: Bool
-      default: true
-      description:
-          R: >
-            TRUE or FALSE (default: TRUE), display the detailed interpretation
-            guide based on the pattern of test results.
 
     - name: showMethodInfo
       title: Show detailed method explanations

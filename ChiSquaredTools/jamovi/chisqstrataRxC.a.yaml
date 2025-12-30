@@ -116,17 +116,6 @@ options:
             number of bootstrap replicates for computing confidence intervals
             of V corrected (default: 1000)
 
-    - name: showResiduals
-      title: Show adjusted standardised residuals
-      type: Bool
-      default: false
-      description:
-          R: >
-            TRUE or FALSE (default: FALSE), display adjusted standardised 
-            residuals for each partial table. Residuals exceeding ±1.96 
-            (highlighted) indicate cells contributing significantly to 
-            the chi-squared statistic at alpha = 0.05.
-
     - name: showForestPlot
       title: Display forest plot of V corrected
       type: Bool
@@ -164,24 +153,6 @@ options:
           R: >
             TRUE or FALSE (default: TRUE), display a V corrected trajectory
             plot when the stratifying variable is marked as ordered.
-
-    - name: showInterpretation
-      title: Show interpretation guide
-      type: Bool
-      default: true
-      description:
-          R: >
-            TRUE or FALSE (default: TRUE), display the detailed interpretation
-            guide based on the pattern of test results.
-
-    - name: showDiagnosticSummary
-      title: Show diagnostic summary
-      type: Bool
-      default: true
-      description:
-          R: >
-            TRUE or FALSE (default: TRUE), display a narrative diagnostic summary
-            that explains the identified scenario and its implications.
 
     - name: showMethodInfo
       title: Show detailed method explanations
