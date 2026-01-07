@@ -10,7 +10,7 @@ chisqsrdOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
             cols = NULL,
             counts = NULL,
             alpha = 0.05,
-            doPruning = TRUE,
+            doPruning = FALSE,
             showMethodInfo = TRUE, ...) {
 
             super$initialize(
@@ -49,7 +49,7 @@ chisqsrdOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
             private$..doPruning <- jmvcore::OptionBool$new(
                 "doPruning",
                 doPruning,
-                default=TRUE)
+                default=FALSE)
             private$..showMethodInfo <- jmvcore::OptionBool$new(
                 "showMethodInfo",
                 showMethodInfo,
@@ -424,7 +424,7 @@ chisqsrdBase <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
 #' @param alpha significance level for merge decisions. Two categories merge
 #'   only  if their weighted chi-squared distance is not significant at this
 #'   level (default 0.05).
-#' @param doPruning TRUE (default) or FALSE, whether to remove categories
+#' @param doPruning TRUE or FALSE (default), whether to remove categories
 #'   whose weight is too small to ever differ significantly from the mean
 #'   profile.
 #' @param showMethodInfo TRUE or FALSE (default), display detailed
@@ -457,7 +457,7 @@ chisqsrd <- function(
     cols,
     counts,
     alpha = 0.05,
-    doPruning = TRUE,
+    doPruning = FALSE,
     showMethodInfo = TRUE) {
 
     if ( ! requireNamespace("jmvcore", quietly=TRUE))

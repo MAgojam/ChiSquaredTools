@@ -205,15 +205,48 @@ chisqsrdClass <- R6::R6Class(
         working_matrix <- prune_result$matrix
         pruning_info <- prune_result$pruning_info
         
+        # After pruning, remove any rows/columns that have become all zeros
+        # (This can happen when pruned rows were the only ones with values in certain columns)
+        row_sums <- rowSums(working_matrix)
+        col_sums <- colSums(working_matrix)
+        
+        # Track additionally removed items due to becoming zero
+        if (any(row_sums == 0)) {
+          zero_rows <- which(row_sums == 0)
+          for (idx in zero_rows) {
+            pruning_info$rows[[length(pruning_info$rows) + 1]] <- list(
+              category = rownames(working_matrix)[idx],
+              weight = 0,
+              critical = NA,
+              reason = "Zero total after column pruning"
+            )
+          }
+          working_matrix <- working_matrix[row_sums > 0, , drop = FALSE]
+        }
+        
+        if (any(col_sums == 0)) {
+          zero_cols <- which(col_sums == 0)
+          for (idx in zero_cols) {
+            pruning_info$cols[[length(pruning_info$cols) + 1]] <- list(
+              category = colnames(working_matrix)[idx],
+              weight = 0,
+              critical = NA,
+              reason = "Zero total after row pruning"
+            )
+          }
+          working_matrix <- working_matrix[, col_sums > 0, drop = FALSE]
+        }
+        
         # Populate pruning table
         private$.populatePruningTable(pruning_info)
       }
       
       pruned_N <- sum(working_matrix)
       pruned_chi <- if (nrow(working_matrix) > 1 && ncol(working_matrix) > 1) {
-        suppressWarnings(stats::chisq.test(working_matrix)$statistic)
+        chi_result <- suppressWarnings(stats::chisq.test(working_matrix)$statistic)
+        if (is.na(chi_result) || is.nan(chi_result)) NA else chi_result
       } else {
-        0
+        NA
       }
       pruned_nRows <- nrow(working_matrix)
       pruned_nCols <- ncol(working_matrix)
@@ -290,9 +323,10 @@ chisqsrdClass <- R6::R6Class(
       # Final statistics
       final_N <- sum(working_matrix)
       final_chi <- if (nrow(working_matrix) > 1 && ncol(working_matrix) > 1) {
-        suppressWarnings(stats::chisq.test(working_matrix)$statistic)
+        chi_result <- suppressWarnings(stats::chisq.test(working_matrix)$statistic)
+        if (is.na(chi_result) || is.nan(chi_result)) NA else chi_result
       } else {
-        0
+        NA
       }
       final_nRows <- nrow(working_matrix)
       final_nCols <- ncol(working_matrix)
@@ -329,54 +363,60 @@ chisqsrdClass <- R6::R6Class(
     # Based on Section 19.2.5 of Orton & Tyers (1991)
     # =========================================================================
     .pruneMatrix = function(mat, alpha) {
+      # Based on Section 19.2.5 of Orton & Tyers (1991)
+      # 
+      # A category is "too small" if it could never differ significantly
+      # from the mean profile regardless of its actual profile.
+      #
+      # Formula: x_crit = χ²(α, k-1) / (k-1)
+      # where k = number of columns (for row pruning) or rows (for column pruning)
+      # and x_crit is in absolute units (counts), not proportions.
       
       pruning_info <- list(rows = list(), cols = list())
       
-      # Calculate critical weight threshold
-      # A category is "too small" if it could never differ significantly
-      # from the mean profile regardless of its actual profile
-      
-      # For rows: critical weight based on number of columns
       k_cols <- ncol(mat)
+      k_rows <- nrow(mat)
+      
+      # Critical weight for ROWS (based on number of columns)
+      # x_crit = χ²(α, k-1) / (k-1)  [Equation from Section 19.2.5]
       df_row <- k_cols - 1
       critical_chi_row <- stats::qchisq(1 - alpha, df = df_row)
-      critical_weight_row <- critical_chi_row / (k_cols - 1)
+      critical_weight_row <- critical_chi_row / df_row  # This is in absolute units
       
-      # For columns: critical weight based on number of rows
-      k_rows <- nrow(mat)
+      # Critical weight for COLUMNS (based on number of rows)
       df_col <- k_rows - 1
       critical_chi_col <- stats::qchisq(1 - alpha, df = df_col)
-      critical_weight_col <- critical_chi_col / (k_rows - 1)
+      critical_weight_col <- critical_chi_col / df_col  # This is in absolute units
       
-      total_N <- sum(mat)
+      # Get row and column totals (absolute counts)
+      row_totals <- rowSums(mat)
+      col_totals <- colSums(mat)
       
-      # Identify rows to prune
-      row_weights <- rowSums(mat) / total_N
-      rows_to_prune <- which(row_weights < critical_weight_row / total_N)
+      # Identify rows to prune: those with total < critical weight
+      rows_to_prune <- which(row_totals < critical_weight_row)
       
       for (idx in rows_to_prune) {
         pruning_info$rows[[length(pruning_info$rows) + 1]] <- list(
           category = rownames(mat)[idx],
-          weight = row_weights[idx],
-          critical = critical_weight_row / total_N,
+          weight = row_totals[idx],
+          critical = critical_weight_row,
           reason = "Weight below critical threshold"
         )
       }
       
-      # Identify columns to prune
-      col_weights <- colSums(mat) / total_N
-      cols_to_prune <- which(col_weights < critical_weight_col / total_N)
+      # Identify columns to prune: those with total < critical weight
+      cols_to_prune <- which(col_totals < critical_weight_col)
       
       for (idx in cols_to_prune) {
         pruning_info$cols[[length(pruning_info$cols) + 1]] <- list(
           category = colnames(mat)[idx],
-          weight = col_weights[idx],
-          critical = critical_weight_col / total_N,
+          weight = col_totals[idx],
+          critical = critical_weight_col,
           reason = "Weight below critical threshold"
         )
       }
       
-      # Remove pruned categories (if any remain after pruning)
+      # Remove pruned categories (only if some remain after pruning)
       if (length(rows_to_prune) > 0 && length(rows_to_prune) < nrow(mat)) {
         mat <- mat[-rows_to_prune, , drop = FALSE]
       }
@@ -438,22 +478,34 @@ chisqsrdClass <- R6::R6Class(
         for (i in 1:(n_current - 1)) {
           for (j in (i + 1):n_current) {
             
+            # Get row totals
+            weight_i <- sum(mat[i, ])
+            weight_j <- sum(mat[j, ])
+            
+            # Skip if either row has zero total (can't calculate profile)
+            if (weight_i == 0 || weight_j == 0) next
+            
             # Calculate chi-squared distance between profiles (Equation 19.1)
-            profile_i <- mat[i, ] / sum(mat[i, ])
-            profile_j <- mat[j, ] / sum(mat[j, ])
+            profile_i <- mat[i, ] / weight_i
+            profile_j <- mat[j, ] / weight_j
             col_masses <- colSums(mat) / sum(mat)
             
-            # Avoid division by zero
+            # Avoid division by zero - need valid columns
             valid_cols <- col_masses > 0
             if (sum(valid_cols) < 2) next
             
+            # Calculate squared distance
             d_squared <- sum(((profile_i[valid_cols] - profile_j[valid_cols])^2) / 
                                col_masses[valid_cols])
             
+            # Skip if distance is NA or NaN
+            if (is.na(d_squared) || is.nan(d_squared)) next
+            
             # Calculate weighted distance (Equation 19.2)
-            weight_i <- sum(mat[i, ])
-            weight_j <- sum(mat[j, ])
             weighted_dist <- d_squared * (weight_i * weight_j) / (weight_i + weight_j)
+            
+            # Skip if weighted distance is NA or NaN
+            if (is.na(weighted_dist) || is.nan(weighted_dist)) next
             
             # Track minimum
             if (weighted_dist < best_weighted_dist) {
@@ -607,25 +659,35 @@ chisqsrdClass <- R6::R6Class(
       ))
       
       # Pruned
+      pruned_chi_pct <- if (!is.na(orig_chi) && orig_chi > 0 && !is.na(pruned_chi)) {
+        (pruned_chi / orig_chi) * 100
+      } else {
+        NA
+      }
       summaryTable$setRow(rowKey = 'pruned', values = list(
         nRows = pruned_nRows,
         nCols = pruned_nCols,
         df = pruned_df,
         totalN = pruned_N,
         nPercent = (pruned_N / orig_N) * 100,
-        chiSquare = pruned_chi,
-        chiPercent = if (orig_chi > 0) (pruned_chi / orig_chi) * 100 else 100
+        chiSquare = if (is.na(pruned_chi)) NaN else pruned_chi,
+        chiPercent = if (is.na(pruned_chi_pct)) NaN else pruned_chi_pct
       ))
       
       # Final
+      final_chi_pct <- if (!is.na(orig_chi) && orig_chi > 0 && !is.na(final_chi)) {
+        (final_chi / orig_chi) * 100
+      } else {
+        NA
+      }
       summaryTable$setRow(rowKey = 'final', values = list(
         nRows = final_nRows,
         nCols = final_nCols,
         df = final_df,
         totalN = final_N,
         nPercent = (final_N / orig_N) * 100,
-        chiSquare = final_chi,
-        chiPercent = if (orig_chi > 0) (final_chi / orig_chi) * 100 else NA
+        chiSquare = if (is.na(final_chi)) NaN else final_chi,
+        chiPercent = if (is.na(final_chi_pct)) NaN else final_chi_pct
       ))
     },
     
@@ -642,7 +704,7 @@ chisqsrdClass <- R6::R6Class(
           dimension = "Row",
           category = info$category,
           weight = info$weight,
-          criticalWeight = info$critical,
+          criticalWeight = if (is.na(info$critical)) NA else info$critical,
           reason = info$reason
         ))
         row_key <- row_key + 1
@@ -654,7 +716,7 @@ chisqsrdClass <- R6::R6Class(
           dimension = "Column",
           category = info$category,
           weight = info$weight,
-          criticalWeight = info$critical,
+          criticalWeight = if (is.na(info$critical)) NA else info$critical,
           reason = info$reason
         ))
         row_key <- row_key + 1
@@ -734,14 +796,14 @@ chisqsrdClass <- R6::R6Class(
       final_count <- length(groups)
       if (final_count < orig_count) {
         table$setNote('groupNote',
-          paste0(orig_count, " original ", dim_type, "s merged into ", final_count, 
-                 " groups. Categories within each group have statistically ",
-                 "indistinguishable profiles (p > ", alpha, ")."),
-          init = FALSE)
+                      paste0(orig_count, " original ", dim_type, "s merged into ", final_count, 
+                             " groups. Categories within each group have statistically ",
+                             "indistinguishable profiles (p > ", alpha, ")."),
+                      init = FALSE)
       } else {
         table$setNote('groupNote',
-          paste0("No ", dim_type, "s could be merged—all have significantly different profiles."),
-          init = FALSE)
+                      paste0("No ", dim_type, "s could be merged—all have significantly different profiles."),
+                      init = FALSE)
       }
     },
     
@@ -795,7 +857,13 @@ chisqsrdClass <- R6::R6Class(
       row_reduction <- orig_nRows - final_nRows
       col_reduction <- orig_nCols - final_nCols
       n_retained_pct <- (final_N / orig_N) * 100
-      chi_retained_pct <- if (orig_chi > 0) (final_chi / orig_chi) * 100 else 100
+      
+      # Handle potential NA in final_chi
+      chi_retained_pct <- if (!is.na(orig_chi) && orig_chi > 0 && !is.na(final_chi)) {
+        (final_chi / orig_chi) * 100
+      } else {
+        NA
+      }
       
       # Summary interpretation
       if (row_reduction == 0 && col_reduction == 0) {
@@ -804,12 +872,20 @@ chisqsrdClass <- R6::R6Class(
           "All rows and columns are statistically distinguishable from each other."
         )
       } else {
-        interpretation <- paste0(
-          "SRD reduced the table from ", orig_nRows, "×", orig_nCols, 
-          " to ", final_nRows, "×", final_nCols, " at α = ", alpha, ". ",
-          sprintf("%.1f%% of the original data and %.1f%% of the chi-squared statistic were retained.",
-                  n_retained_pct, chi_retained_pct)
-        )
+        if (!is.na(chi_retained_pct)) {
+          interpretation <- paste0(
+            "SRD reduced the table from ", orig_nRows, "×", orig_nCols, 
+            " to ", final_nRows, "×", final_nCols, " at α = ", alpha, ". ",
+            sprintf("%.1f%% of the original data and %.1f%% of the chi-squared statistic were retained.",
+                    n_retained_pct, chi_retained_pct)
+          )
+        } else {
+          interpretation <- paste0(
+            "SRD reduced the table from ", orig_nRows, "×", orig_nCols, 
+            " to ", final_nRows, "×", final_nCols, " at α = ", alpha, ". ",
+            sprintf("%.1f%% of the original data was retained.", n_retained_pct)
+          )
+        }
       }
       
       self$results$summaryTable$setNote('srdSummary', interpretation, init = FALSE)
@@ -827,92 +903,114 @@ chisqsrdClass <- R6::R6Class(
       
       # Overview
       html <- paste0(html,
-        "<h4 style='color: #3E6DA6;'>Overview</h4>",
-        "<p style='margin-bottom: 12px;'>SRD is a technique for simplifying sparse contingency tables by systematically ",
-        "merging rows and/or columns that are statistically indistinguishable. Unlike ",
-        "conventional hierarchical clustering which merges greedily and cuts the tree ",
-        "post-hoc, SRD performs a significance test at each potential merge and only ",
-        "combines categories when their profiles cannot be distinguished at the specified ",
-        "significance level (α = ", alpha, ").</p>"
+                     "<h4 style='color: #3E6DA6;'>Overview</h4>",
+                     "<p style='margin-bottom: 12px;'>SRD is a technique for simplifying sparse contingency tables by systematically ",
+                     "merging rows and/or columns that are statistically indistinguishable. Unlike ",
+                     "conventional hierarchical clustering which merges greedily and cuts the tree ",
+                     "post-hoc, SRD performs a significance test at each potential merge and only ",
+                     "combines categories when their profiles cannot be distinguished at the specified ",
+                     "significance level (α = ", alpha, ").</p>"
       )
       
       # The Problem
       html <- paste0(html,
-        "<h4 style='color: #3E6DA6;'>The Problem SRD Addresses</h4>",
-        "<p style='margin-bottom: 12px;'>Sparse contingency tables—those with many small or zero cell counts—present ",
-        "two difficulties for chi-squared analysis:</p>",
-        "<ul style='margin-bottom: 12px;'>",
-        "<li><strong>Inflated degrees of freedom:</strong> Near-empty cells contribute little ",
-        "to χ² but add degrees of freedom, potentially masking genuine patterns.</li>",
-        "<li><strong>Unreliable statistics:</strong> Small expected values can produce erratic ",
-        "chi-squared values that violate asymptotic assumptions.</li>",
-        "</ul>"
+                     "<h4 style='color: #3E6DA6;'>The Problem SRD Addresses</h4>",
+                     "<p style='margin-bottom: 12px;'>Sparse contingency tables—those with many small or zero cell counts—present ",
+                     "two difficulties for chi-squared analysis:</p>",
+                     "<ul style='margin-bottom: 12px;'>",
+                     "<li><strong>Inflated degrees of freedom:</strong> Near-empty cells contribute little ",
+                     "to χ² but add degrees of freedom, potentially masking genuine patterns.</li>",
+                     "<li><strong>Unreliable statistics:</strong> Small expected values can produce erratic ",
+                     "chi-squared values that violate asymptotic assumptions.</li>",
+                     "</ul>"
       )
       
       # Chi-squared distance
       html <- paste0(html,
-        "<h4 style='color: #3E6DA6;'>The Chi-Squared Distance</h4>",
-        "<p style='margin-bottom: 12px;'>SRD uses the chi-squared metric from correspondence analysis to measure ",
-        "similarity between row profiles (or column profiles). For two rows <em>i</em> and ",
-        "<em>j</em>, the squared distance is:</p>",
-        "<p style='text-align: center; margin-bottom: 12px;'>",
-        "d²(i,j) = Σ<sub>k</sub> (p<sub>ik</sub> − p<sub>jk</sub>)² / c<sub>k</sub></p>",
-        "<p style='margin-bottom: 12px;'>where p<sub>ik</sub> is row <em>i</em>'s profile value in column <em>k</em>, ",
-        "and c<sub>k</sub> is the column mass. Rows with similar proportional distributions ",
-        "across columns have small distances.</p>"
+                     "<h4 style='color: #3E6DA6;'>The Chi-Squared Distance</h4>",
+                     "<p style='margin-bottom: 12px;'>SRD uses the chi-squared metric from correspondence analysis to measure ",
+                     "similarity between row profiles (or column profiles). For two rows <em>i</em> and ",
+                     "<em>j</em>, the squared distance is:</p>",
+                     "<p style='text-align: center; margin-bottom: 12px;'>",
+                     "d²(i,j) = Σ<sub>k</sub> (p<sub>ik</sub> − p<sub>jk</sub>)² / c<sub>k</sub></p>",
+                     "<p style='margin-bottom: 12px;'>where p<sub>ik</sub> is row <em>i</em>'s profile value in column <em>k</em>, ",
+                     "and c<sub>k</sub> is the column mass. Rows with similar proportional distributions ",
+                     "across columns have small distances.</p>"
       )
       
       # Weighted statistic
       html <- paste0(html,
-        "<h4 style='color: #3E6DA6;'>The Weighted Chi-Squared Statistic</h4>",
-        "<p style='margin-bottom: 12px;'>The raw distance is converted to a chi-squared statistic for hypothesis testing:</p>",
-        "<p style='text-align: center; margin-bottom: 12px;'>",
-        "χ² = d² × (n<sub>i</sub> × n<sub>j</sub>) / (n<sub>i</sub> + n<sub>j</sub>)</p>",
-        "<p style='margin-bottom: 12px;'>This weighted distance accounts for row sizes. Under the null hypothesis that ",
-        "rows <em>i</em> and <em>j</em> are samples from the same population, this statistic ",
-        "follows a chi-squared distribution with (k−1) degrees of freedom, where k is the ",
-        "number of columns with non-zero totals.</p>"
+                     "<h4 style='color: #3E6DA6;'>The Weighted Chi-Squared Statistic</h4>",
+                     "<p style='margin-bottom: 12px;'>The raw distance is converted to a chi-squared statistic for hypothesis testing:</p>",
+                     "<p style='text-align: center; margin-bottom: 12px;'>",
+                     "χ² = d² × (n<sub>i</sub> × n<sub>j</sub>) / (n<sub>i</sub> + n<sub>j</sub>)</p>",
+                     "<p style='margin-bottom: 12px;'>This weighted distance accounts for row sizes. Under the null hypothesis that ",
+                     "rows <em>i</em> and <em>j</em> are samples from the same population, this statistic ",
+                     "follows a chi-squared distribution with (k−1) degrees of freedom, where k is the ",
+                     "number of columns with non-zero totals.</p>"
       )
       
       # Algorithm
+      # Algorithm
       html <- paste0(html,
-        "<h4 style='color: #3E6DA6;'>The Algorithm</h4>",
-        "<ol style='margin-bottom: 12px;'>",
-        "<li><strong>Pruning (optional):</strong> Remove categories whose total weight is so ",
-        "small they could never differ significantly from the mean profile.</li>",
-        "<li><strong>Calculate distances:</strong> Compute weighted chi-squared distances ",
-        "between all pairs of rows (or columns).</li>",
-        "<li><strong>Test the closest pair:</strong> If p > α, the pair cannot be distinguished; ",
-        "merge them. If p ≤ α, the closest pair differs significantly—stop.</li>",
-        "<li><strong>Update and repeat:</strong> After merging, recalculate distances involving ",
-        "the new combined category and return to step 2.</li>",
-        "</ol>"
+                     "<h4 style='color: #3E6DA6;'>The Algorithm</h4>",
+                     "<ol style='margin-bottom: 12px;'>",
+                     "<li><strong>Pruning (optional):</strong> Remove categories whose total weight is so ",
+                     "small they could never differ significantly from the mean profile.</li>",
+                     "<li><strong>Calculate distances:</strong> Compute weighted chi-squared distances ",
+                     "between all pairs of rows (or columns).</li>",
+                     "<li><strong>Test the closest pair:</strong> If p > α, the pair cannot be distinguished; ",
+                     "merge them. If p ≤ α, the closest pair differs significantly—stop.</li>",
+                     "<li><strong>Update and repeat:</strong> After merging, recalculate distances involving ",
+                     "the new combined category and return to step 2.</li>",
+                     "</ol>"
+      )
+      
+      # Pruning details
+      html <- paste0(html,
+                     "<h4 style='color: #3E6DA6;'>Pruning (Pre-treatment)</h4>",
+                     "<p style='margin-bottom: 12px;'>Pruning removes categories that are too small to ever ",
+                     "produce a statistically significant difference from the mean profile, regardless of their ",
+                     "actual distribution. This prevents 'meaningless' merges where tiny categories combine with ",
+                     "others simply because their low weight makes any distance non-significant.</p>",
+                     "<p style='margin-bottom: 12px;'>The critical weight threshold is calculated as:</p>",
+                     "<p style='text-align: center; margin-bottom: 12px;'>",
+                     "x<sub>crit</sub> = χ²<sub>α,k−1</sub> / (k − 1)</p>",
+                     "<p style='margin-bottom: 12px;'>where k is the number of columns (for row pruning) or rows ",
+                     "(for column pruning), and χ²<sub>α,k−1</sub> is the critical chi-squared value at the chosen ",
+                     "significance level. Categories with total weight below this threshold are removed before SRD begins.</p>",
+                     "<p style='margin-bottom: 12px;'>Additionally, if pruning causes any remaining row or column to have ",
+                     "a zero total (because all its non-zero values were in pruned categories), that row or column ",
+                     "is also removed.</p>",
+                     "<p style='margin-bottom: 12px;'><em>Note:</em> Pruning can be aggressive with small sample sizes ",
+                     "or when data are measured in small units. If important categories are being pruned, consider ",
+                     "disabling this option and relying on SRD alone to handle sparse categories through merging.</p>"
       )
       
       # Interpreting results
       html <- paste0(html,
-        "<h4 style='color: #3E6DA6;'>Interpreting Results</h4>",
-        "<p style='margin-bottom: 12px;'><strong>Merge history:</strong> Each step shows the closest pair, their weighted ",
-        "chi-squared distance, degrees of freedom, and p-value. 'Merged' indicates the pair ",
-        "was combined; 'Stopped' indicates the procedure terminated because even the closest ",
-        "remaining pair was significantly different.</p>",
-        "<p style='margin-bottom: 12px;'><strong>Final groups:</strong> Categories within each group have statistically ",
-        "indistinguishable profiles at the chosen α level. The composite labels show which ",
-        "original categories were combined.</p>",
-        "<p style='margin-bottom: 12px;'><strong>Chi-squared retention:</strong> The ratio of final to initial χ² indicates ",
-        "how much of the table's association structure was preserved. High retention (>80%) ",
-        "suggests the reduction removed noise rather than signal.</p>"
+                     "<h4 style='color: #3E6DA6;'>Interpreting Results</h4>",
+                     "<p style='margin-bottom: 12px;'><strong>Merge history:</strong> Each step shows the closest pair, their weighted ",
+                     "chi-squared distance, degrees of freedom, and p-value. 'Merged' indicates the pair ",
+                     "was combined; 'Stopped' indicates the procedure terminated because even the closest ",
+                     "remaining pair was significantly different.</p>",
+                     "<p style='margin-bottom: 12px;'><strong>Final groups:</strong> Categories within each group have statistically ",
+                     "indistinguishable profiles at the chosen α level. The composite labels show which ",
+                     "original categories were combined.</p>",
+                     "<p style='margin-bottom: 12px;'><strong>Chi-squared retention:</strong> The ratio of final to initial χ² indicates ",
+                     "how much of the table's association structure was preserved. High retention (>80%) ",
+                     "suggests the reduction removed noise rather than signal.</p>"
       )
       
       # References - formatted like power analysis
       html <- paste0(html,
-        "<h4 style='color: #3E6DA6;'>References</h4>",
-        "<p style='font-size: 0.85em; color: #666; margin-top: 8px;'>",
-        "Greenacre, M. J. (1984). <em>Theory and Applications of Correspondence Analysis</em>. Academic Press.<br>",
-        "Orton, C., & Tyers, P. (1991). A technique for reducing the size of sparse contingency tables. ",
-        "In S. Rahtz & K. Lockyear (Eds.), <em>CAA90: Computer Applications and Quantitative Methods ",
-        "in Archaeology 1990</em> (BAR International Series 565, pp. 121–126). Tempus Reparatum.",
-        "</p>"
+                     "<h4 style='color: #3E6DA6;'>References</h4>",
+                     "<p style='font-size: 0.85em; color: #666; margin-top: 8px;'>",
+                     "Greenacre, M. J. (1984). <em>Theory and Applications of Correspondence Analysis</em>. Academic Press.<br>",
+                     "Orton, C., & Tyers, P. (1991). A technique for reducing the size of sparse contingency tables. ",
+                     "In S. Rahtz & K. Lockyear (Eds.), <em>CAA90: Computer Applications and Quantitative Methods ",
+                     "in Archaeology 1990</em> (BAR International Series 565, pp. 121–126). Tempus Reparatum.",
+                     "</p>"
       )
       
       html <- paste0(html, "</div>")

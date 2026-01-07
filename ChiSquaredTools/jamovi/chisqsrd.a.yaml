@@ -103,10 +103,10 @@ options:
     - name: doPruning
       title: Prune small categories before SRD
       type: Bool
-      default: true
+      default: false
       description:
           R: >
-            TRUE (default) or FALSE, whether to remove categories whose weight
+            TRUE or FALSE (default), whether to remove categories whose weight
             is too small to ever differ significantly from the mean profile.
 
     - name: showMethodInfo
