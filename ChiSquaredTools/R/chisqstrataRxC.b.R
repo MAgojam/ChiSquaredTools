@@ -19,6 +19,239 @@ chisqstrataRxCClass <- R6::R6Class(
     .cachedCmhTest = NULL,
     .cachedLoglinResult = NULL,
     
+    # Structure cache key for preventing unnecessary rebuilds
+    .structureKey = NULL,
+    
+    # ═══════════════════════════════════════════════════════════════════════════
+    # .init() - Pre-create table structures to prevent flicker
+    # ═══════════════════════════════════════════════════════════════════════════
+    
+    .init = function() {
+      
+      # Early return if required variables not specified
+      if (is.null(self$options$rows) || 
+          is.null(self$options$cols) || 
+          is.null(self$options$strata)) {
+        return()
+      }
+      
+      rowVar <- self$options$rows
+      colVar <- self$options$cols
+      strataVar <- self$options$strata
+      data <- self$data
+      
+      # Ensure variables are factors for level extraction
+      if (!is.factor(data[[rowVar]])) {
+        data[[rowVar]] <- as.factor(data[[rowVar]])
+      }
+      if (!is.factor(data[[colVar]])) {
+        data[[colVar]] <- as.factor(data[[colVar]])
+      }
+      if (!is.factor(data[[strataVar]])) {
+        data[[strataVar]] <- as.factor(data[[strataVar]])
+      }
+      
+      # Get factor levels
+      rowLevels <- levels(data[[rowVar]])
+      colLevels <- levels(data[[colVar]])
+      strataLevels <- levels(data[[strataVar]])
+      K <- length(strataLevels)
+      nRows <- length(rowLevels)
+      nCols <- length(colLevels)
+      
+      # ═══════════════════════════════════════════════════════════════════════════
+      # Guard: Skip structure rebuild if clearWith options unchanged
+      # This prevents table flickering when toggling display-only options
+      # ═══════════════════════════════════════════════════════════════════════════
+      
+      structureKey <- paste(
+        rowVar, colVar, strataVar,
+        self$options$counts,
+        K, nRows, nCols,
+        paste(rowLevels, collapse = ","),
+        paste(colLevels, collapse = ","),
+        paste(strataLevels, collapse = ","),
+        sep = "|"
+      )
+      
+      if (identical(private$.structureKey, structureKey)) {
+        # Structure already built for these options, skip rebuild
+        return()
+      }
+      private$.structureKey <- structureKey
+      
+      # ═══════════════════════════════════════════════════════════════════════════
+      # Initialise partial tables (one per stratum)
+      # ═══════════════════════════════════════════════════════════════════════════
+      
+      partialTablesGroup <- self$results$partialTablesGroup
+      
+      for (k in 1:K) {
+        # Add item to array
+        partialTablesGroup$addItem(key = k)
+        table <- partialTablesGroup$get(key = k)
+        
+        # Set title
+        table$setTitle(paste0(strataVar, " = ", strataLevels[k]))
+        
+        # Add row name column
+        table$addColumn(
+          name = 'rowname',
+          title = rowVar,
+          type = 'text'
+        )
+        
+        # Add data columns
+        for (j in 1:nCols) {
+          table$addColumn(
+            name = paste0("col", j),
+            title = colLevels[j],
+            superTitle = colVar,
+            type = 'integer'
+          )
+        }
+        
+        # Add row total column
+        table$addColumn(
+          name = 'rowtotal',
+          title = 'Total',
+          type = 'integer'
+        )
+        
+        # Add empty rows (data rows + total row)
+        for (i in 1:nRows) {
+          table$addRow(rowKey = i, values = list(rowname = rowLevels[i]))
+        }
+        table$addRow(rowKey = 'total', values = list(rowname = 'Total'))
+      }
+      
+      # ═══════════════════════════════════════════════════════════════════════════
+      # Initialise marginal table
+      # ═══════════════════════════════════════════════════════════════════════════
+      
+      marginalTable <- self$results$marginalTable
+      marginalTable$setTitle("Marginal Table (Collapsed)")
+      
+      # Add row name column
+      marginalTable$addColumn(
+        name = 'rowname',
+        title = rowVar,
+        type = 'text'
+      )
+      
+      # Add data columns
+      for (j in 1:nCols) {
+        marginalTable$addColumn(
+          name = paste0("col", j),
+          title = colLevels[j],
+          superTitle = colVar,
+          type = 'integer'
+        )
+      }
+      
+      # Add row total column
+      marginalTable$addColumn(
+        name = 'rowtotal',
+        title = 'Total',
+        type = 'integer'
+      )
+      
+      # Add empty rows
+      for (i in 1:nRows) {
+        marginalTable$addRow(rowKey = i, values = list(rowname = rowLevels[i]))
+      }
+      marginalTable$addRow(rowKey = 'total', values = list(rowname = 'Total'))
+      
+      # ═══════════════════════════════════════════════════════════════════════════
+      # Initialise stratum results table
+      # ═══════════════════════════════════════════════════════════════════════════
+      
+      stratumTable <- self$results$stratumResultsTable
+      
+      # Add rows for each stratum
+      for (k in 1:K) {
+        stratumTable$addRow(rowKey = k, values = list(
+          stratum = paste0("Partial Table ", k, " (", strataLevels[k], ")")
+        ))
+      }
+      # Add marginal row
+      stratumTable$addRow(rowKey = 'marginal', values = list(stratum = "Marginal Table"))
+      
+      # ═══════════════════════════════════════════════════════════════════════════
+      # Initialise residuals tables (one per stratum)
+      # ═══════════════════════════════════════════════════════════════════════════
+      
+      residualsGroup <- self$results$residualsGroup
+      
+      for (k in 1:K) {
+        # Add item to array
+        residualsGroup$addItem(key = k)
+        table <- residualsGroup$get(key = k)
+        
+        # Set title
+        table$setTitle(paste0("Adjusted Standardised Residuals: ", strataLevels[k]))
+        
+        # Add row name column
+        table$addColumn(
+          name = 'rowname',
+          title = rowVar,
+          type = 'text'
+        )
+        
+        # Add data columns
+        for (j in 1:nCols) {
+          table$addColumn(
+            name = paste0("col", j),
+            title = colLevels[j],
+            superTitle = colVar,
+            type = 'number',
+            format = 'zto'
+          )
+        }
+        
+        # Add empty rows (no total row for residuals)
+        for (i in 1:nRows) {
+          table$addRow(rowKey = i, values = list(rowname = rowLevels[i]))
+        }
+      }
+      
+      # ═══════════════════════════════════════════════════════════════════════════
+      # Initialise CMH test table
+      # ═══════════════════════════════════════════════════════════════════════════
+      
+      cmhTable <- self$results$cmhTestTable
+      cmhTable$addRow(rowKey = 1, values = list(test = "Generalised CMH"))
+      
+      # ═══════════════════════════════════════════════════════════════════════════
+      # Initialise homogeneity test table
+      # ═══════════════════════════════════════════════════════════════════════════
+      
+      homogTable <- self$results$homogeneityTable
+      homogTable$addRow(rowKey = 1, values = list(test = "Log-Linear Likelihood Ratio"))
+      
+      # ═══════════════════════════════════════════════════════════════════════════
+      # Initialise summary measure table
+      # ═══════════════════════════════════════════════════════════════════════════
+      
+      summaryTable <- self$results$summaryMeasureTable
+      summaryTable$addRow(rowKey = 1, values = list(measure = "Weighted Average V corrected"))
+      
+      # ═══════════════════════════════════════════════════════════════════════════
+      # Initialise interpretation table
+      # ═══════════════════════════════════════════════════════════════════════════
+      
+      interpTable <- self$results$interpretationTable
+      interpTable$addRow(rowKey = 'condIndep', values = list(topic = 'Conditional Independence/Dependence'))
+      interpTable$addRow(rowKey = 'homogeneity', values = list(topic = 'Homogeneity/Heterogeneity'))
+      interpTable$addRow(rowKey = 'scenario', values = list(topic = 'Interpretation'))
+      
+      # ═══════════════════════════════════════════════════════════════════════════
+      # Initialise method info HTML element with empty content
+      # ═══════════════════════════════════════════════════════════════════════════
+      
+      self$results$methodInfo$setContent('')
+    },
+    
     .run = function() {
       
       # ═══════════════════════════════════════════════════════════════════════════
@@ -130,6 +363,63 @@ chisqstrataRxCClass <- R6::R6Class(
       listOfTables <- lapply(1:K, function(i) array3D[,,i])
       
       # ═══════════════════════════════════════════════════════════════════════════
+      # 2b. Validate strata for degenerate tables
+      # ═══════════════════════════════════════════════════════════════════════════
+      
+      # Check each stratum for validity
+      zeroStrata <- character(0)
+      degenerateStrata <- character(0)
+      
+      for (k in 1:K) {
+        tbl <- listOfTables[[k]]
+        stratumName <- strataNames[k]
+        
+        # Check for all-zero table (no observations in this stratum)
+        if (sum(tbl) == 0) {
+          zeroStrata <- c(zeroStrata, stratumName)
+          next
+        }
+        
+        # Check for zero row margins (entire row is zero)
+        rowSums_k <- rowSums(tbl)
+        if (any(rowSums_k == 0)) {
+          degenerateStrata <- c(degenerateStrata, stratumName)
+          next
+        }
+        
+        # Check for zero column margins (entire column is zero)
+        colSums_k <- colSums(tbl)
+        if (any(colSums_k == 0)) {
+          degenerateStrata <- c(degenerateStrata, stratumName)
+        }
+      }
+      
+      # Build informative error message if problems detected
+      if (length(zeroStrata) > 0) {
+        jmvcore::reject(
+          paste0(
+            "The following strata contain no observations: ",
+            paste(zeroStrata, collapse = ", "), ". ",
+            "This typically occurs when a filtering or transformation creates ",
+            "empty cross-tabulations. Please check your data or stratifying variable."
+          ),
+          code = "empty_strata"
+        )
+      }
+      
+      if (length(degenerateStrata) > 0) {
+        jmvcore::reject(
+          paste0(
+            "The following strata have degenerate structure (entire row or column is zero): ",
+            paste(degenerateStrata, collapse = ", "), ". ",
+            "Chi-squared tests and association measures require variation in both ",
+            "rows and columns within each stratum."
+          ),
+          code = "degenerate_strata"
+        )
+      }
+      
+      # ═══════════════════════════════════════════════════════════════════════════
       # 3. Populate partial tables
       # ═══════════════════════════════════════════════════════════════════════════
       
@@ -211,13 +501,10 @@ chisqstrataRxCClass <- R6::R6Class(
           cmhTest <- stats::mantelhaen.test(array3D, correct = FALSE)
         })
         
-        # ═══════════════════════════════════════════════════════════════════════════
-        # 7. Log-linear homogeneity test
-        # ═══════════════════════════════════════════════════════════════════════════
-        
+        # Log-linear homogeneity test
         loglinResult <- private$.loglinearHomogeneityTest(array3D)
         
-        # Cache results for potential reuse
+        # Cache the results
         private$.cachedDataSignature <- dataSignature
         private$.cachedVResults <- vResults
         private$.cachedMarginalVResult <- marginalVResult
@@ -230,20 +517,17 @@ chisqstrataRxCClass <- R6::R6Class(
       }
       
       # ═══════════════════════════════════════════════════════════════════════════
-      # 8. Populate results tables
+      # 7. Populate results tables
       # ═══════════════════════════════════════════════════════════════════════════
       
       private$.populateStratumResultsTable(vResults, marginalVResult, chiSqResults, 
                                            marginalChiSq, strataNames)
       
-      # ═══════════════════════════════════════════════════════════════════════════
-      # 8b. Compute and populate adjusted standardised residuals (always shown)
-      # ═══════════════════════════════════════════════════════════════════════════
-      
+      # Populate residuals section
       private$.populateResidualsSection(listOfTables, strataNames, rowVar, colVar)
       
       # ═══════════════════════════════════════════════════════════════════════════
-      # Populate other relevant tables
+      # 8. Populate test tables
       # ═══════════════════════════════════════════════════════════════════════════
       
       private$.populateCMHTable(cmhTest)
@@ -254,31 +538,26 @@ chisqstrataRxCClass <- R6::R6Class(
       # 9. Prepare plot states
       # ═══════════════════════════════════════════════════════════════════════════
       
-      if (self$options$showForestPlot) {
-        forestData <- private$.prepareForestData(vResults, marginalVResult, 
-                                                  weighted_vcorr, weightedCI, 
-                                                  strataNames, K)
-        image <- self$results$forestPlot
-        image$setState(forestData)
-        # Dynamic height: 200 base + 60 per stratum + 80 for marginal/weighted
-        image$setSize(700, 200 + (K * 60) + 80)
-      }
+      # Forest plot state
+      forestData <- private$.prepareForestData(vResults, marginalVResult, weighted_vcorr, weightedCI, strataNames, K)
+      self$results$forestPlot$setState(forestData)
       
-      if (self$options$showDiagnosticTree) {
-        treeData <- private$.prepareDiagnosticTreeData(cmhTest$p.value, 
-                                                        loglinResult$pvalue)
-        image <- self$results$diagnosticTree
-        image$setState(treeData)
-      }
+      # Diagnostic tree state
+      diagnosticData <- list(
+        cmh_sig = cmhTest$p.value < 0.05,
+        loglin_sig = loglinResult$pvalue < 0.05,
+        scenario = private$.determineScenario(cmhTest$p.value < 0.05, loglinResult$pvalue < 0.05)
+      )
+      self$results$diagnosticTree$setState(diagnosticData)
       
+      # Trajectory plot state (only if strata marked as ordered)
       if (self$options$showTrajectoryPlot && self$options$strataOrdered) {
         trajectoryData <- private$.prepareTrajectoryData(vResults, strataNames)
-        image <- self$results$trajectoryPlot
-        image$setState(trajectoryData)
+        self$results$trajectoryPlot$setState(trajectoryData)
       }
       
       # ═══════════════════════════════════════════════════════════════════════════
-      # 10. Populate interpretation summary table
+      # 10. Generate interpretation
       # ═══════════════════════════════════════════════════════════════════════════
       
       private$.populateInterpretationTable(
@@ -288,14 +567,19 @@ chisqstrataRxCClass <- R6::R6Class(
       )
       
       # ═══════════════════════════════════════════════════════════════════════════
-      # 11. Populate method information and references
+      # 11. Populate method information
       # ═══════════════════════════════════════════════════════════════════════════
       
       private$.populateMethodInfo()
+      
+      # ═══════════════════════════════════════════════════════════════════════════
+      # 12. Populate references
+      # ═══════════════════════════════════════════════════════════════════════════
+      
     },
     
     # ═══════════════════════════════════════════════════════════════════════════
-    # Helper: Build 3D array from data
+    # Helper: Build stratified array
     # ═══════════════════════════════════════════════════════════════════════════
     
     .buildStratifiedArray = function(data, rowVar, colVar, strataVar) {
@@ -569,11 +853,11 @@ chisqstrataRxCClass <- R6::R6Class(
       # (no three-way interaction)
       suppressWarnings({
         model_homo <- stats::glm(Freq ~ Row*Col + Row*Stratum + Col*Stratum,
-                                  data = df, family = stats::poisson())
+                                 data = df, family = stats::poisson())
         
         # Fit saturated model: Row*Col*Stratum
         model_sat <- stats::glm(Freq ~ Row*Col*Stratum,
-                                 data = df, family = stats::poisson())
+                                data = df, family = stats::poisson())
       })
       
       # Likelihood ratio test
@@ -597,7 +881,7 @@ chisqstrataRxCClass <- R6::R6Class(
     },
     
     # ═══════════════════════════════════════════════════════════════════════════
-    # Populate: Partial tables (one per stratum)
+    # Populate: Partial tables (one per stratum) - USES setRow()
     # ═══════════════════════════════════════════════════════════════════════════
     
     .populatePartialTables = function(array3D, strataNames, rowVar, colVar, strataVar) {
@@ -615,115 +899,62 @@ chisqstrataRxCClass <- R6::R6Class(
         # Get the partial table
         partialTab <- array3D[,,k]
         
-        # Add table to array
-        partialTablesGroup$addItem(key = k)
+        # Get pre-existing table from array (structure created in .init)
         table <- partialTablesGroup$get(key = k)
         
-        # Set title
-        table$setTitle(paste0(strataVar, " = ", strataNames[k]))
-        
-        # Add row name column
-        table$addColumn(
-          name = 'rowname',
-          title = rowVar,
-          type = 'text'
-        )
-        
-        # Add data columns
-        for (j in 1:nCols) {
-          table$addColumn(
-            name = paste0("col", j),
-            title = colNames[j],
-            superTitle = colVar,
-            type = 'integer'
-          )
-        }
-        
-        # Add row total column
-        table$addColumn(
-          name = 'rowtotal',
-          title = 'Total',
-          type = 'integer'
-        )
-        
-        # Populate rows
+        # Populate rows using setRow (structure already created in .init)
         for (i in 1:nRows) {
           rowValues <- list(rowname = rowNames[i])
           for (j in 1:nCols) {
             rowValues[[paste0("col", j)]] <- partialTab[i, j]
           }
           rowValues[['rowtotal']] <- sum(partialTab[i,])
-          table$addRow(rowKey = i, values = rowValues)
+          table$setRow(rowKey = i, values = rowValues)
         }
         
-        # Add column totals row
+        # Populate column totals row
         totalRowValues <- list(rowname = 'Total')
         for (j in 1:nCols) {
           totalRowValues[[paste0("col", j)]] <- sum(partialTab[,j])
         }
         totalRowValues[['rowtotal']] <- sum(partialTab)
-        table$addRow(rowKey = 'total', values = totalRowValues)
+        table$setRow(rowKey = 'total', values = totalRowValues)
       }
     },
     
     # ═══════════════════════════════════════════════════════════════════════════
-    # Populate: Marginal table
+    # Populate: Marginal table - USES setRow()
     # ═══════════════════════════════════════════════════════════════════════════
     
     .populateMarginalTable = function(marginalTable, rowVar, colVar) {
       
       table <- self$results$marginalTable
-      table$setTitle("Marginal Table (Collapsed)")
       rowNames <- rownames(marginalTable)
       colNames <- colnames(marginalTable)
       nRows <- nrow(marginalTable)
       nCols <- ncol(marginalTable)
       
-      # Add row name column
-      table$addColumn(
-        name = 'rowname',
-        title = rowVar,
-        type = 'text'
-      )
-      
-      # Add data columns
-      for (j in 1:nCols) {
-        table$addColumn(
-          name = paste0("col", j),
-          title = colNames[j],
-          superTitle = colVar,
-          type = 'integer'
-        )
-      }
-      
-      # Add row total column
-      table$addColumn(
-        name = 'rowtotal',
-        title = 'Total',
-        type = 'integer'
-      )
-      
-      # Populate rows
+      # Populate rows using setRow (structure already created in .init)
       for (i in 1:nRows) {
         rowValues <- list(rowname = rowNames[i])
         for (j in 1:nCols) {
           rowValues[[paste0("col", j)]] <- marginalTable[i, j]
         }
         rowValues[['rowtotal']] <- sum(marginalTable[i,])
-        table$addRow(rowKey = i, values = rowValues)
+        table$setRow(rowKey = i, values = rowValues)
       }
       
-      # Add column totals row
+      # Populate column totals row
       totalRowValues <- list(rowname = 'Total')
       for (j in 1:nCols) {
         totalRowValues[[paste0("col", j)]] <- sum(marginalTable[,j])
       }
       totalRowValues[['rowtotal']] <- sum(marginalTable)
-      table$addRow(rowKey = 'total', values = totalRowValues)
+      table$setRow(rowKey = 'total', values = totalRowValues)
     },
     
     # ═══════════════════════════════════════════════════════════════════════════
-    # Populate: Stratum-specific results table
+    # Populate: Stratum-specific results table - USES setRow()
     # ═══════════════════════════════════════════════════════════════════════════
     
     .populateStratumResultsTable = function(vResults, marginalVResult, chiSqResults, 
@@ -732,9 +963,9 @@ chisqstrataRxCClass <- R6::R6Class(
       table <- self$results$stratumResultsTable
       K <- length(vResults)
       
-      # Add rows for each partial table
+      # Update rows for each partial table using setRow
       for (k in 1:K) {
-        table$addRow(rowKey = k, values = list(
+        table$setRow(rowKey = k, values = list(
           stratum = paste0("Partial Table ", k, " (", strataNames[k], ")"),
           chisq = chiSqResults[[k]]$statistic,
           df = chiSqResults[[k]]$df,
@@ -747,8 +978,8 @@ chisqstrataRxCClass <- R6::R6Class(
         ))
       }
       
-      # Add marginal table row
-      table$addRow(rowKey = 'marginal', values = list(
+      # Update marginal table row
+      table$setRow(rowKey = 'marginal', values = list(
         stratum = "Marginal Table",
         chisq = as.numeric(marginalChiSq$statistic),
         df = as.integer(marginalChiSq$parameter),
@@ -768,14 +999,14 @@ chisqstrataRxCClass <- R6::R6Class(
     },
     
     # ═══════════════════════════════════════════════════════════════════════════
-    # Populate: CMH test table
+    # Populate: CMH test table - USES setRow()
     # ═══════════════════════════════════════════════════════════════════════════
     
     .populateCMHTable = function(cmhTest) {
       
       table <- self$results$cmhTestTable
       
-      table$addRow(rowKey = 1, values = list(
+      table$setRow(rowKey = 1, values = list(
         test = "Generalised CMH",
         statistic = as.numeric(cmhTest$statistic),
         df = as.integer(cmhTest$parameter),
@@ -799,14 +1030,14 @@ chisqstrataRxCClass <- R6::R6Class(
     },
     
     # ═══════════════════════════════════════════════════════════════════════════
-    # Populate: Homogeneity test table
+    # Populate: Homogeneity test table - USES setRow()
     # ═══════════════════════════════════════════════════════════════════════════
     
     .populateHomogeneityTable = function(loglinResult) {
       
       table <- self$results$homogeneityTable
       
-      table$addRow(rowKey = 1, values = list(
+      table$setRow(rowKey = 1, values = list(
         test = "Log-Linear Likelihood Ratio",
         statistic = loglinResult$statistic,
         df = loglinResult$df,
@@ -830,14 +1061,14 @@ chisqstrataRxCClass <- R6::R6Class(
     },
     
     # ═══════════════════════════════════════════════════════════════════════════
-    # Populate: Summary measure table
+    # Populate: Summary measure table - USES setRow()
     # ═══════════════════════════════════════════════════════════════════════════
     
     .populateSummaryMeasureTable = function(weighted_vcorr, weightedCI, loglinResult, cmhTest) {
       
       table <- self$results$summaryMeasureTable
       
-      table$addRow(rowKey = 1, values = list(
+      table$setRow(rowKey = 1, values = list(
         measure = "Weighted Average V corrected",
         estimate = weighted_vcorr,
         ciLower = weightedCI$ci_lower,
@@ -909,7 +1140,7 @@ chisqstrataRxCClass <- R6::R6Class(
     },
     
     # ═══════════════════════════════════════════════════════════════════════════
-    # Populate: Residuals section (header, tables, note)
+    # Populate: Residuals section - USES setRow()
     # ═══════════════════════════════════════════════════════════════════════════
     
     .populateResidualsSection = function(listOfTables, strataNames, rowVar, colVar) {
@@ -929,30 +1160,8 @@ chisqstrataRxCClass <- R6::R6Class(
         nRows <- nrow(asr)
         nCols <- ncol(asr)
         
-        # Add table to array
-        residualsGroup$addItem(key = k)
+        # Get pre-existing table from array (structure created in .init)
         table <- residualsGroup$get(key = k)
-        
-        # Set title
-        table$setTitle(paste0("Adjusted Standardised Residuals: ", strataNames[k]))
-        
-        # Add row name column
-        table$addColumn(
-          name = 'rowname',
-          title = rowVar,
-          type = 'text'
-        )
-        
-        # Add data columns
-        for (j in 1:nCols) {
-          table$addColumn(
-            name = paste0("col", j),
-            title = colNames[j],
-            superTitle = colVar,
-            type = 'number',
-            format = 'zto'
-          )
-        }
         
         # Populate rows with colour coding for significant residuals
         for (i in 1:nRows) {
@@ -960,7 +1169,7 @@ chisqstrataRxCClass <- R6::R6Class(
           for (j in 1:nCols) {
             rowValues[[paste0("col", j)]] <- asr[i, j]
           }
-          table$addRow(rowKey = i, values = rowValues)
+          table$setRow(rowKey = i, values = rowValues)
           
           # Apply highlighting for significant residuals (|value| > 1.96)
           for (j in 1:nCols) {
@@ -989,11 +1198,7 @@ chisqstrataRxCClass <- R6::R6Class(
     },
     
     # ═══════════════════════════════════════════════════════════════════════════
-    # Add Interpretation Notice
-    # ═══════════════════════════════════════════════════════════════════════════
-    
-    # ═══════════════════════════════════════════════════════════════════════════
-    # Populate: Interpretation Summary Table
+    # Populate: Interpretation Summary Table - USES setRow()
     # ═══════════════════════════════════════════════════════════════════════════
     
     .populateInterpretationTable = function(cmhTest, loglinResult,
@@ -1001,11 +1206,6 @@ chisqstrataRxCClass <- R6::R6Class(
                                             rowVar, colVar, strataVar) {
       
       table <- self$results$interpretationTable
-      
-      # Initialise table rows
-      table$addRow(rowKey = 'condIndep', values = list(topic = 'Conditional Independence/Dependence'))
-      table$addRow(rowKey = 'homogeneity', values = list(topic = 'Homogeneity/Heterogeneity'))
-      table$addRow(rowKey = 'scenario', values = list(topic = 'Interpretation'))
       
       # ─────────────────────────────────────────────────────────────────────────
       # Guard against invalid test results
@@ -1112,12 +1312,28 @@ chisqstrataRxCClass <- R6::R6Class(
       stage3Text <- paste0(scenario, ": ", recommendation, " (Based on \u03B1 = 0.05)")
       
       # ─────────────────────────────────────────────────────────────────────────
-      # Populate table
+      # Populate table using setRow (structure created in .init)
       # ─────────────────────────────────────────────────────────────────────────
       
       table$setRow(rowKey = 'condIndep', values = list(result = stage1Text))
       table$setRow(rowKey = 'homogeneity', values = list(result = stage2Text))
       table$setRow(rowKey = 'scenario', values = list(result = stage3Text))
+    },
+    
+    # ═══════════════════════════════════════════════════════════════════════════
+    # Helper: Determine scenario label
+    # ═══════════════════════════════════════════════════════════════════════════
+    
+    .determineScenario = function(cmhSig, llSig) {
+      if (cmhSig && !llSig) {
+        return("Conditional dependence with homogeneity (Replication)")
+      } else if (cmhSig && llSig) {
+        return("Conditional dependence with heterogeneity (Interaction)")
+      } else if (!cmhSig && !llSig) {
+        return("Conditional independence")
+      } else {
+        return("Conditional independence with heterogeneity (Opposing effects)")
+      }
     },
     
     # ═══════════════════════════════════════════════════════════════════════════
@@ -1321,11 +1537,12 @@ chisqstrataRxCClass <- R6::R6Class(
     },
     
     # ═══════════════════════════════════════════════════════════════════════════
+    # ═══════════════════════════════════════════════════════════════════════════
     # Plot Data Preparation: Forest Plot
     # ═══════════════════════════════════════════════════════════════════════════
     
     .prepareForestData = function(vResults, marginalVResult, weighted_vcorr, 
-                                   weightedCI, strataNames, K) {
+                                  weightedCI, strataNames, K) {
       
       # Extract V corrected estimates and CIs for each stratum
       vcorr_vec <- sapply(vResults, function(x) x$vcorr)
@@ -1371,53 +1588,6 @@ chisqstrataRxCClass <- R6::R6Class(
     },
     
     # ═══════════════════════════════════════════════════════════════════════════
-    # Plot Data Preparation: Diagnostic Tree
-    # ═══════════════════════════════════════════════════════════════════════════
-    
-    .prepareDiagnosticTreeData = function(cmh_p, loglin_p) {
-      
-      
-      # Guard against NULL, empty, or NA values
-      if (is.null(cmh_p) || is.null(loglin_p) ||
-          length(cmh_p) == 0 || length(loglin_p) == 0 ||
-          is.na(cmh_p) || is.na(loglin_p)) {
-        return(NULL)
-      }
-      
-      cmh_sig <- cmh_p < 0.05
-      loglin_sig <- loglin_p < 0.05
-      
-      # Determine scenario (matching 2×2×K interpretation logic)
-      if (cmh_sig && !loglin_sig) {
-        scenario <- "Conditional dependence with homogeneity"
-        scenario_num <- 1
-        scenario_description <- "Homogeneous association:\nConsistent relationship across strata"
-      } else if (cmh_sig && loglin_sig) {
-        scenario <- "Conditional dependence with heterogeneity"
-        scenario_num <- 2
-        scenario_description <- "Heterogeneous association:\nEffect modification (interaction) present"
-      } else if (!cmh_sig && !loglin_sig) {
-        scenario <- "Conditional independence with homogeneity"
-        scenario_num <- 3
-        scenario_description <- "Conditional independence:\nAssociation (if any) vanishes when stratified"
-      } else {
-        scenario <- "Conditional independence with heterogeneity"
-        scenario_num <- 4
-        scenario_description <- "Opposing associations:\nEffects cancel across strata"
-      }
-      
-      return(list(
-        cmh_sig = cmh_sig,
-        loglin_sig = loglin_sig,
-        cmh_p = cmh_p,
-        loglin_p = loglin_p,
-        scenario = scenario,
-        scenario_num = scenario_num,
-        scenario_description = scenario_description
-      ))
-    },
-    
-    # ═══════════════════════════════════════════════════════════════════════════
     # Plot Data Preparation: Trajectory Plot
     # ═══════════════════════════════════════════════════════════════════════════
     
@@ -1438,11 +1608,6 @@ chisqstrataRxCClass <- R6::R6Class(
       
       return(plotData)
     },
-    
-    # ═══════════════════════════════════════════════════════════════════════════
-    # Forest Plot Render Function
-    # ═══════════════════════════════════════════════════════════════════════════
-    
     .forestPlot = function(image, ggtheme, theme, ...) {
       
       plotData <- image$state
