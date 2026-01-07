@@ -310,6 +310,65 @@ chisqstrata2x2Class <- R6::R6Class(
       listOfTables <- lapply(1:K, function(i) array3D[,,i])
       
       # ═══════════════════════════════════════════════════════════════════════════
+      # 2b. Validate strata for degenerate tables
+      # ═══════════════════════════════════════════════════════════════════════════
+      
+      # Check each stratum for validity
+      invalidStrata <- character(0)
+      zeroStrata <- character(0)
+      singleRowStrata <- character(0)
+      singleColStrata <- character(0)
+      
+      for (k in 1:K) {
+        tbl <- listOfTables[[k]]
+        stratumName <- strataNames[k]
+        
+        # Check for all-zero table (no observations in this stratum)
+        if (sum(tbl) == 0) {
+          zeroStrata <- c(zeroStrata, stratumName)
+          next
+        }
+        
+        # Check for zero row margins (entire row is zero)
+        rowSums_k <- rowSums(tbl)
+        if (any(rowSums_k == 0)) {
+          singleRowStrata <- c(singleRowStrata, stratumName)
+        }
+        
+        # Check for zero column margins (entire column is zero)
+        colSums_k <- colSums(tbl)
+        if (any(colSums_k == 0)) {
+          singleColStrata <- c(singleColStrata, stratumName)
+        }
+      }
+      
+      # Build informative error message if problems detected
+      if (length(zeroStrata) > 0) {
+        jmvcore::reject(
+          paste0(
+            "The following strata contain no observations: ",
+            paste(zeroStrata, collapse = ", "), ". ",
+            "This typically occurs when a filtering or transformation creates ",
+            "empty cross-tabulations. Please check your data or stratifying variable."
+          ),
+          code = "empty_strata"
+        )
+      }
+      
+      if (length(singleRowStrata) > 0 || length(singleColStrata) > 0) {
+        problemStrata <- unique(c(singleRowStrata, singleColStrata))
+        jmvcore::reject(
+          paste0(
+            "The following strata have degenerate structure (entire row or column is zero): ",
+            paste(problemStrata, collapse = ", "), ". ",
+            "Chi-squared tests and odds ratio calculations require variation in both ",
+            "rows and columns within each stratum."
+          ),
+          code = "degenerate_strata"
+        )
+      }
+      
+      # ═══════════════════════════════════════════════════════════════════════════
       # 3. Compute marginal table (population happens later, after OR calculation)
       # ═══════════════════════════════════════════════════════════════════════════
       
@@ -617,26 +676,72 @@ chisqstrata2x2Class <- R6::R6Class(
     
     .breslowDayTaroneTest = function(x) {
       
-      # Get the common OR based on Mantel-Haenszel
-      or_hat_mh <- as.numeric(stats::mantelhaen.test(x)$estimate)
-      
       # Number of strata
       K <- dim(x)[3]
+      
+      # Get the common OR based on Mantel-Haenszel
+      # Wrap in tryCatch to handle edge cases
+      mhResult <- tryCatch(
+        stats::mantelhaen.test(x),
+        error = function(e) NULL
+      )
+      
+      if (is.null(mhResult)) {
+        return(list(statistic = NA, df = K - 1, pvalue = NA, 
+                    error = "Could not compute MH common OR"))
+      }
+      
+      or_hat_mh <- as.numeric(mhResult$estimate)
+      
+      # Handle edge cases where OR is exactly 0, Inf, or NA
+      if (is.na(or_hat_mh) || is.infinite(or_hat_mh) || or_hat_mh == 0) {
+        return(list(statistic = NA, df = K - 1, pvalue = NA,
+                    error = "Common odds ratio is undefined or extreme"))
+      }
       
       # Initialise
       X2_HBD <- 0
       a <- tildea <- Var_a <- numeric(K)
+      validStrata <- 0
       
       for (j in 1:K) {
         # Find marginals of table j
         mj <- apply(x[,,j], MARGIN = 1, sum)
         nj <- apply(x[,,j], MARGIN = 2, sum)
         
+        # Skip strata with zero marginals (degenerate tables)
+        if (any(mj == 0) || any(nj == 0)) {
+          a[j] <- NA
+          tildea[j] <- NA
+          Var_a[j] <- NA
+          next
+        }
+        
         # Solve for tilde(a)_j using quadratic formula
         coef <- c(-mj[1] * nj[1] * or_hat_mh, 
                   nj[2] - mj[1] + or_hat_mh * (nj[1] + mj[1]),
                   1 - or_hat_mh)
-        sols <- Re(polyroot(coef))
+        
+        # Check for invalid polynomial coefficients
+        if (any(is.na(coef)) || any(is.infinite(coef))) {
+          a[j] <- NA
+          tildea[j] <- NA
+          Var_a[j] <- NA
+          next
+        }
+        
+        # Attempt to find roots
+        sols <- tryCatch(
+          Re(polyroot(coef)),
+          error = function(e) NULL
+        )
+        
+        if (is.null(sols)) {
+          a[j] <- NA
+          tildea[j] <- NA
+          Var_a[j] <- NA
+          next
+        }
         
         # Take the root which fulfills 0 < tilde(a)_j <= min(n1_j, m1_j)
         tildeaj <- sols[(0 < sols) & (sols <= min(nj[1], mj[1]))]
@@ -656,6 +761,14 @@ chisqstrata2x2Class <- R6::R6Class(
         tildecj <- nj[1] - tildeaj
         tildedj <- mj[2] - tildecj
         
+        # Check for zero expected cells (would cause division by zero)
+        if (tildeaj <= 0 || tildebj <= 0 || tildecj <= 0 || tildedj <= 0) {
+          a[j] <- NA
+          tildea[j] <- NA
+          Var_a[j] <- NA
+          next
+        }
+        
         # Compute variance estimate
         Var_aj <- (1/tildeaj + 1/tildebj + 1/tildecj + 1/tildedj)^(-1)
         
@@ -666,10 +779,27 @@ chisqstrata2x2Class <- R6::R6Class(
         a[j] <- aj
         tildea[j] <- tildeaj
         Var_a[j] <- Var_aj
+        validStrata <- validStrata + 1
       }
       
+      # Need at least 2 valid strata for the test
+      if (validStrata < 2) {
+        return(list(statistic = NA, df = K - 1, pvalue = NA,
+                    error = "Insufficient valid strata for homogeneity test"))
+      }
+      
+      # Remove NAs for final calculation
+      a_valid <- a[!is.na(a)]
+      tildea_valid <- tildea[!is.na(tildea)]
+      Var_a_valid <- Var_a[!is.na(Var_a)]
+      
       # Compute Tarone corrected test
-      X2_HBDT <- as.numeric(X2_HBD - (sum(a) - sum(tildea))^2 / sum(Var_a))
+      X2_HBDT <- as.numeric(X2_HBD - (sum(a_valid) - sum(tildea_valid))^2 / sum(Var_a_valid))
+      
+      # Handle negative test statistic (can occur with correction)
+      if (X2_HBDT < 0) {
+        X2_HBDT <- 0
+      }
       
       # Compute p-value based on the Tarone corrected test
       pvalue <- 1 - stats::pchisq(X2_HBDT, df = K - 1)
@@ -921,16 +1051,36 @@ chisqstrata2x2Class <- R6::R6Class(
       ))
       
       # Update Breslow-Day-Tarone test row
-      table$setRow(rowKey = 2, values = list(
-        test = "Breslow-Day-Tarone",
-        statistic = bdtResult$statistic,
-        df = bdtResult$df,
-        pvalue = bdtResult$pvalue
-      ))
+      # Check if BDT returned an error
+      if (!is.null(bdtResult$error)) {
+        table$setRow(rowKey = 2, values = list(
+          test = "Breslow-Day-Tarone",
+          statistic = NA,
+          df = bdtResult$df,
+          pvalue = NA
+        ))
+        table$addFootnote(rowKey = 2, col = 'statistic', 
+                          paste0("Could not compute: ", bdtResult$error))
+      } else {
+        table$setRow(rowKey = 2, values = list(
+          test = "Breslow-Day-Tarone",
+          statistic = bdtResult$statistic,
+          df = bdtResult$df,
+          pvalue = bdtResult$pvalue
+        ))
+      }
       
       # Add conditional footnote based on significance
-      heterogeneitySig <- mhResult$pvalue < 0.05 || bdtResult$pvalue < 0.05
-      if (heterogeneitySig) {
+      # Handle NA p-values gracefully
+      mhSig <- !is.na(mhResult$pvalue) && mhResult$pvalue < 0.05
+      bdtSig <- !is.na(bdtResult$pvalue) && bdtResult$pvalue < 0.05
+      
+      if (is.na(mhResult$pvalue) && is.na(bdtResult$pvalue)) {
+        homogFootnote <- paste0(
+          "Neither homogeneity test could be computed due to degenerate table structure. ",
+          "Examine stratum-specific odds ratios individually."
+        )
+      } else if (mhSig || bdtSig) {
         homogFootnote <- paste0(
           "At least one test is significant: the assumption that the odds ratios ",
           "are equal across strata must be rejected (heterogeneity). ",
