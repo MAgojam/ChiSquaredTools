@@ -16,10 +16,10 @@ Description: Comprehensive toolkit for chi-squared analysis of contingency table
     (3) Association measures with over 20 coefficients organised by statistical
     foundation, including chi-squared-based, margin-free, and PRE measures;
     (4) Power analysis for a priori sample size determination, post-hoc power
-    calculation, and sensitivity analysis; (5) Hierarchical clustering using Ward's
-    method with chi-squared distance and significance testing; (6) Simultaneous
-    Reduction of Dimension (SRD) for sparse contingency tables using hypothesis
-    testing to merge statistically indistinguishable rows and columns; (7) Stratified
+    calculation, and sensitivity analysis; (5) Simultaneous Reduction of Dimension (SRD) 
+    for sparse contingency tables using hypothesis testing to merge statistically indistinguishable 
+    rows and columns;(6) Hierarchical clustering using Ward's
+    method with chi-squared distance and significance testing; (7) Stratified
     analysis for 2x2xK tables with Cochran-Mantel-Haenszel test, Breslow-Day-Tarone
     homogeneity test, and forest plots; (8) Stratified analysis for RxCxK tables with
     generalised CMH test, log-linear homogeneity test, and trajectory plots. Features
