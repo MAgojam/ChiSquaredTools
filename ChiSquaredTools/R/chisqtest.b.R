@@ -104,7 +104,30 @@ chisqtestClass <- R6::R6Class(
       charTable$addRow(rowKey = "avgexp", values = list(characteristic = "Average expected frequency", value = "."))
       
       # -----------------------------------------------------------------
-      # 5. Pre-build testResults rows based on selected options
+      # 5. Pre-build validityAssessment table
+      # -----------------------------------------------------------------
+      validityTable <- self$results$validityAssessment
+      validityTable$addRow(rowKey = "n", values = list(
+        diagnostic = "Sample size (N)", value = ".", threshold = ".", status = "."
+      ))
+      validityTable$addRow(rowKey = "k", values = list(
+        diagnostic = "Number of cells (k)", value = ".", threshold = ".", status = "."
+      ))
+      validityTable$addRow(rowKey = "lambda", values = list(
+        diagnostic = "Average cell count (N/k)", value = ".", threshold = ".", status = "."
+      ))
+      validityTable$addRow(rowKey = "sparsity", values = list(
+        diagnostic = "Sparsity index (N\u00B2/k)", value = ".", threshold = ".", status = "."
+      ))
+      validityTable$addRow(rowKey = "minexp", values = list(
+        diagnostic = "Minimum expected frequency", value = ".", threshold = ".", status = "."
+      ))
+      validityTable$addRow(rowKey = "assessment", values = list(
+        diagnostic = "Overall assessment", value = "", threshold = "", status = "."
+      ))
+      
+      # -----------------------------------------------------------------
+      # 6. Pre-build testResults rows based on selected options
       # -----------------------------------------------------------------
       testTable <- self$results$testResults
       
@@ -169,6 +192,9 @@ chisqtestClass <- R6::R6Class(
       
       # Populate table characteristics (replaces methodGuidance HTML)
       private$.populateTableCharacteristics(contingency_table, expected)
+      
+      # Populate validity assessment table
+      private$.populateValidityAssessment(contingency_table, expected)
       
       # Run tests and add dynamic recommendation as footnote
       private$.runTests(contingency_table, expected, data, rowVar, colVar)
@@ -258,14 +284,98 @@ chisqtestClass <- R6::R6Class(
         characteristic = "Average expected frequency",
         value = sprintf("%.3f", avg_expected)
       ))
+    },
+    
+    .populateValidityAssessment = function(contingency_table, expected) {
       
-      # Add the 5-times rule footnote
+      table <- self$results$validityAssessment
+      
+      # Calculate diagnostics
+      n <- sum(contingency_table)
+      I <- nrow(contingency_table)
+      J <- ncol(contingency_table)
+      k <- I * J
+      lambda <- n / k
+      sparsity_index <- (n^2) / k
+      min_exp <- min(expected)
+      
+      # Evaluate each criterion
+      n_ok <- n >= 10
+      k_ok <- k >= 3
+      lambda_ok <- lambda >= 5
+      sparsity_ok <- sparsity_index >= 10
+      minexp_ok <- min_exp >= 1
+      
+      # Helper function for status text
+      status_text <- function(ok, pass_label = "Adequate", fail_label = "Below threshold") {
+        if (ok) paste0("\u2713 ", pass_label) else paste0("\u2717 ", fail_label)
+      }
+      
+      # Populate rows
+      table$setRow(rowKey = "n", values = list(
+        diagnostic = "Sample size (N)",
+        value = as.character(n),
+        threshold = "\u2265 10",
+        status = status_text(n_ok)
+      ))
+      
+      table$setRow(rowKey = "k", values = list(
+        diagnostic = "Number of cells (k)",
+        value = as.character(k),
+        threshold = "\u2265 3",
+        status = status_text(k_ok)
+      ))
+      
+      table$setRow(rowKey = "lambda", values = list(
+        diagnostic = "Average cell count (N/k)",
+        value = sprintf("%.2f", lambda),
+        threshold = "\u2265 5",
+        status = status_text(lambda_ok)
+      ))
+      
+      table$setRow(rowKey = "sparsity", values = list(
+        diagnostic = "Sparsity index (N\u00B2/k)",
+        value = sprintf("%.2f", sparsity_index),
+        threshold = "\u2265 10",
+        status = status_text(sparsity_ok, "Non-sparse", "Sparse")
+      ))
+      
+      table$setRow(rowKey = "minexp", values = list(
+        diagnostic = "Minimum expected frequency",
+        value = sprintf("%.3f", min_exp),
+        threshold = "\u2265 1",
+        status = status_text(minexp_ok)
+      ))
+      
+      # Determine overall assessment
+      if (n < 10) {
+        assessment <- "Permutation or Monte Carlo tests recommended (N < 10)"
+      } else if (lambda_ok) {
+        # N/k ≥ 5: traditional chi-squared appropriate
+        assessment <- "Traditional \u03C7\u00B2 test appropriate"
+      } else if (sparsity_ok && minexp_ok) {
+        # N/k < 5 but N²/k ≥ 10 and min(E) ≥ 1
+        assessment <- "(N-1)/N adjusted \u03C7\u00B2 recommended"
+      } else {
+        # Either N²/k < 10 or min(E) < 1
+        assessment <- "Permutation or Monte Carlo tests recommended"
+      }
+      
+      table$setRow(rowKey = "assessment", values = list(
+        diagnostic = "Overall assessment",
+        value = "",
+        threshold = "",
+        status = assessment
+      ))
+      
+      # Add footnote with references
       table$setNote(
-        key = "rule",
+        key = "validity_refs",
         note = paste0(
-          "The '5-times rule': if N ≥ 5 × number of cells, the traditional χ² test is reliable at α = 0.05. ",
-          "Here: ", grand_total, " vs. ", 5 * num_cells, " (threshold). ",
-          "See: Roscoe & Byars 1971; Greenwood & Nikulin 1996; Zar 2014; Alberti 2024."
+          "Thresholds based on: N \u2265 10 and N\u00B2/k \u2265 10 (Koehler & Larntz 1980); ",
+          "N/k \u2265 5 (Roscoe & Byars 1971; Zar 2014); ",
+          "min(E) \u2265 1 for (N-1)/N adjustment (Campbell 2007; Richardson 2011). ",
+          "See also: Alberti 2024."
         ),
         init = FALSE
       )
@@ -463,35 +573,6 @@ chisqtestClass <- R6::R6Class(
           pvalue = p_m
         ))
       }
-      
-      # --- Add dynamic recommendation as footnote ---
-      n <- sum(observed)
-      num_cells <- nrow(observed) * ncol(observed)
-      min_expected <- min(expected)
-      is_2x2 <- nrow(observed) == 2 && ncol(observed) == 2
-      threshold <- 5 * num_cells
-      
-      # Build recommendation text
-      if (n >= threshold) {
-        rec_text <- paste0(
-          "Recommendation: N (", n, ") ≥ 5 × cells (", threshold, 
-          "); traditional χ² test is appropriate. Permutation/Monte Carlo methods also valid."
-        )
-      } else if (min_expected >= 1) {
-        rec_text <- paste0(
-          "Recommendation: N (", n, ") < 5 × cells (", threshold, 
-          ") but min. expected (", sprintf("%.2f", min_expected), 
-          ") ≥ 1; (N-1)/N adjusted χ² test is recommended. Permutation/Monte Carlo methods also valid."
-        )
-      } else {
-        rec_text <- paste0(
-          "Recommendation: N (", n, ") < 5 × cells (", threshold, 
-          ") and min. expected (", sprintf("%.2f", min_expected), 
-          ") < 1; Permutation or Monte Carlo methods are recommended."
-        )
-      }
-      
-      table$setNote(key = "recommendation", note = rec_text, init = FALSE)
       
       # Add M test note if M test is selected
       table$setNote(
@@ -726,6 +807,23 @@ chisqtestClass <- R6::R6Class(
       html <- "<div style='font-family: sans-serif; line-height: 1.6; font-size: 0.95em;'>"
       html <- paste0(html, "<h3 style='color: #3E6DA6;'>Method Details</h3>")
       
+      # Validity Assessment explanation (always shown)
+      html <- paste0(html, "<h4 style='color: #3E6DA6;'>Test Validity Assessment</h4>")
+      html <- paste0(html, "<p style='margin-bottom: 12px;'>The Test Validity Assessment table evaluates whether the ",
+                     "chi-squared approximation is appropriate for your data. The recommendation follows these rules:</p>")
+      html <- paste0(html, "<ol style='margin-bottom: 12px;'>")
+      html <- paste0(html, "<li>If <strong>N < 10</strong>: sample size too small for asymptotic tests; ",
+                     "use Permutation or Monte Carlo methods.</li>")
+      html <- paste0(html, "<li>If <strong>N/k \u2265 5</strong> (average cell count at least 5): ",
+                     "Traditional \u03C7\u00B2 test is appropriate.</li>")
+      html <- paste0(html, "<li>If <strong>N/k < 5</strong> but <strong>N\u00B2/k \u2265 10</strong> and <strong>min(E) \u2265 1</strong>: ",
+                     "(N-1)/N adjusted \u03C7\u00B2 test is recommended.</li>")
+      html <- paste0(html, "<li>If <strong>N\u00B2/k < 10</strong> or <strong>min(E) < 1</strong>: ",
+                     "Permutation or Monte Carlo methods are recommended.</li>")
+      html <- paste0(html, "</ol>")
+      html <- paste0(html, "<p style='font-size: 0.85em; color: #666; margin-top: 8px; margin-bottom: 12px;'><em>See: ",
+                     "Koehler & Larntz 1980; Roscoe & Byars 1971; Zar 2014; Campbell 2007; Richardson 2011; Alberti 2024.</em></p>")
+      
       if (self$options$traditionalTest) {
         html <- paste0(html, "<h4 style='color: #3E6DA6;'>Traditional Chi-Squared Test</h4>")
         html <- paste0(html, "<p style='margin-bottom: 12px;'><strong>Rationale:</strong> The traditional chi-squared test of independence evaluates ",
@@ -739,7 +837,7 @@ chisqtestClass <- R6::R6Class(
                        "for maintaining the chi-squared test's reliability at α = 0.05. As a consequence, a table's grand total equal to or ",
                        "larger than 5 times the number of cells ensures the applicability of the traditional chi-squared test.</p>")
         html <- paste0(html, "<p style='font-size: 0.85em; color: #666; margin-top: 8px; margin-bottom: 12px;'><em>See: Roscoe & Byars 1971; ",
-                       "Greenwood & Nikulin 1996; Zar 2014; Agresti et al. 200; Alberti 2024.</em></p>")
+                       "Greenwood & Nikulin 1996; Zar 2014; Agresti et al. 2022; Alberti 2024.</em></p>")
       }
       
       if (self$options$n1Test) {

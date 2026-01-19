@@ -234,7 +234,7 @@ items:
           title: 'Significance'
           type: text
       refs:
-       - gambirasio2024
+       - gambirasio2019
 
     - name: depPlot
       title: DEP Forest Plot

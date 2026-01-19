@@ -1,0 +1,406 @@
+title: Correspondence Analysis
+name: ca
+jus: '3.0'
+stage: 0
+compilerMode: tame
+children:
+  # ============================================================================
+  # VARIABLE SELECTION
+  # ============================================================================
+  - type: VariableSupplier
+    stretchFactor: 1
+    persistentItems: false
+    children:
+      - type: TargetLayoutBox
+        label: Row Variable
+        children:
+          - type: VariablesListBox
+            name: rows
+            maxItemCount: 1
+            isTarget: true
+      - type: TargetLayoutBox
+        label: Column Variable
+        children:
+          - type: VariablesListBox
+            name: cols
+            maxItemCount: 1
+            isTarget: true
+      - type: TargetLayoutBox
+        label: Counts (optional, for frequency data)
+        children:
+          - type: VariablesListBox
+            name: counts
+            maxItemCount: 1
+            isTarget: true
+
+  # ============================================================================
+  # OUTPUT TABLES
+  # ============================================================================
+  - type: CollapseBox
+    label: Output Tables
+    collapsed: false
+    stretchFactor: 1
+    children:
+      # ------------------------------------------------------------------------
+      # General Tables
+      # ------------------------------------------------------------------------
+      - type: Label
+        label: General
+        children:
+          - type: LayoutBox
+            margin: small
+            stretchFactor: 1
+            children:
+              - type: LayoutBox
+                cell:
+                  column: 0
+                  row: 0
+                stretchFactor: 1
+                children:
+                  - type: CheckBox
+                    name: showSummary
+                  - type: CheckBox
+                    name: showInertia
+                  - type: CheckBox
+                    name: showQualityContrib
+              - type: LayoutBox
+                cell:
+                  column: 1
+                  row: 0
+                stretchFactor: 1
+                children:
+                  - type: CheckBox
+                    name: showSymmetricCoords
+                  - type: CheckBox
+                    name: showCellContrib
+      # ------------------------------------------------------------------------
+      # Contribution Biplot Tables
+      # ------------------------------------------------------------------------
+      - type: Label
+        label: Contribution Biplot
+        children:
+          - type: LayoutBox
+            margin: small
+            stretchFactor: 1
+            children:
+              - type: LayoutBox
+                cell:
+                  column: 0
+                  row: 0
+                stretchFactor: 1
+                children:
+                  - type: CheckBox
+                    name: showContribCoords
+                  - type: CheckBox
+                    name: showDimDef
+                  - type: CheckBox
+                    name: showDimSummary
+              - type: LayoutBox
+                cell:
+                  column: 1
+                  row: 0
+                stretchFactor: 1
+                children:
+                  - type: CheckBox
+                    name: showCorrelations
+                  - type: CheckBox
+                    name: showInterpretation
+                  - type: CheckBox
+                    name: showProfiles
+      # ------------------------------------------------------------------------
+      # Clustering & Seriation
+      # ------------------------------------------------------------------------
+      - type: Label
+        label: Clustering & Seriation
+        children:
+          - type: LayoutBox
+            margin: small
+            stretchFactor: 1
+            children:
+              - type: LayoutBox
+                cell:
+                  column: 0
+                  row: 0
+                stretchFactor: 1
+                children:
+                  - type: CheckBox
+                    name: showSRDTable
+              - type: LayoutBox
+                cell:
+                  column: 1
+                  row: 0
+                stretchFactor: 1
+                children:
+                  - type: CheckBox
+                    name: showSeriatedTable
+
+  # ============================================================================
+  # FILTERING OPTIONS
+  # ============================================================================
+  - type: CollapseBox
+    label: Filtering Options
+    collapsed: true
+    stretchFactor: 1
+    children:
+      - type: LayoutBox
+        margin: small
+        stretchFactor: 1
+        children:
+          - type: LayoutBox
+            cell:
+              column: 0
+              row: 0
+            stretchFactor: 1
+            children:
+              - type: TextBox
+                name: qualityThreshold
+                format: number
+          - type: LayoutBox
+            cell:
+              column: 1
+              row: 0
+            stretchFactor: 1
+            children:
+              - type: TextBox
+                name: residualThreshold
+                format: number
+
+  # ============================================================================
+  # ANALYSIS SETTINGS - Vertically stacked to avoid overlap
+  # ============================================================================
+  - type: CollapseBox
+    label: Analysis Settings
+    collapsed: false
+    stretchFactor: 1
+    children:
+      # Distance Metric (own row)
+      - type: LayoutBox
+        margin: small
+        stretchFactor: 1
+        children:
+          - type: ComboBox
+            name: distanceMetric
+      # Residual Type (own row)
+      - type: LayoutBox
+        margin: small
+        stretchFactor: 1
+        children:
+          - type: ComboBox
+            name: residualType
+      # Number of Axes (own row)
+      - type: LayoutBox
+        margin: small
+        stretchFactor: 1
+        children:
+          - type: TextBox
+            name: nAxes
+            format: number
+      # Dimension for X-axis and Y-axis (side by side)
+      - type: LayoutBox
+        margin: small
+        stretchFactor: 1
+        children:
+          - type: LayoutBox
+            cell:
+              column: 0
+              row: 0
+            stretchFactor: 1
+            children:
+              - type: TextBox
+                name: dim1
+                format: number
+          - type: LayoutBox
+            cell:
+              column: 1
+              row: 0
+            stretchFactor: 1
+            children:
+              - type: TextBox
+                name: dim2
+                format: number
+
+  # ============================================================================
+  # SYMMETRIC CA PLOT
+  # ============================================================================
+  - type: CollapseBox
+    label: Symmetric Plot
+    collapsed: false
+    stretchFactor: 1
+    children:
+      - type: LayoutBox
+        margin: small
+        stretchFactor: 1
+        children:
+          - type: CheckBox
+            name: showSymmetricPlot
+          - type: CheckBox
+            name: symmetricShowClusters
+          - type: ComboBox
+            name: symmetricClusterTarget
+            enable: (symmetricShowClusters)
+      - type: LayoutBox
+        margin: small
+        stretchFactor: 1
+        children:
+          - type: LayoutBox
+            cell:
+              column: 0
+              row: 0
+            stretchFactor: 1
+            children:
+              - type: ComboBox
+                name: symmetricShowContrib
+          - type: LayoutBox
+            cell:
+              column: 1
+              row: 0
+            stretchFactor: 1
+            children:
+              - type: ComboBox
+                name: symmetricShowQuality
+
+  # ============================================================================
+  # GEOMETRIC INTERPRETATION PLOT
+  # ============================================================================
+  - type: CollapseBox
+    label: Geometric Interpretation Plot
+    collapsed: true
+    stretchFactor: 1
+    children:
+      - type: LayoutBox
+        margin: small
+        stretchFactor: 1
+        children:
+          - type: CheckBox
+            name: showGeometricPlot
+      - type: LayoutBox
+        margin: small
+        stretchFactor: 1
+        children:
+          - type: Label
+            label: Reference Selection
+            children:
+              - type: ComboBox
+                name: geometricRefVariable
+              - type: LevelSelector
+                name: geometricRefCategoryRow
+                enable: (geometricRefVariable:rows)
+              - type: LevelSelector
+                name: geometricRefCategoryCol
+                enable: (geometricRefVariable:cols)
+
+  # ============================================================================
+  # CONTRIBUTION BIPLOT
+  # ============================================================================
+  - type: CollapseBox
+    label: Contribution Biplot
+    collapsed: true
+    stretchFactor: 1
+    children:
+      - type: LayoutBox
+        margin: small
+        stretchFactor: 1
+        children:
+          - type: LayoutBox
+            cell:
+              column: 0
+              row: 0
+            stretchFactor: 1
+            children:
+              - type: CheckBox
+                name: showContribPlot
+              - type: ComboBox
+                name: contribFocus
+          - type: LayoutBox
+            cell:
+              column: 1
+              row: 0
+            stretchFactor: 1
+            children:
+              - type: CheckBox
+                name: showQuality
+              - type: CheckBox
+                name: hideWeakContrib
+              - type: CheckBox
+                name: contribShowClusters
+
+  # ============================================================================
+  # PLOT APPEARANCE
+  # ============================================================================
+  - type: CollapseBox
+    label: Plot Appearance
+    collapsed: true
+    stretchFactor: 1
+    children:
+      - type: LayoutBox
+        margin: small
+        stretchFactor: 1
+        children:
+          - type: LayoutBox
+            cell:
+              column: 0
+              row: 0
+            stretchFactor: 1
+            children:
+              - type: CheckBox
+                name: showScreePlot
+              - type: CheckBox
+                name: equalScale
+          - type: LayoutBox
+            cell:
+              column: 1
+              row: 0
+            stretchFactor: 1
+            children:
+              - type: TextBox
+                name: dotSize
+                format: number
+              - type: TextBox
+                name: labelSize
+                format: number
+
+  # ============================================================================
+  # CLUSTERING (SRD)
+  # ============================================================================
+  - type: CollapseBox
+    label: Clustering (SRD)
+    collapsed: true
+    stretchFactor: 1
+    children:
+      - type: LayoutBox
+        margin: small
+        stretchFactor: 1
+        children:
+          - type: TextBox
+            name: clusterAlpha
+            format: number
+
+  # ============================================================================
+  # DIAGNOSTICS
+  # ============================================================================
+  - type: CollapseBox
+    label: Diagnostics
+    collapsed: true
+    stretchFactor: 1
+    children:
+      - type: LayoutBox
+        margin: small
+        stretchFactor: 1
+        children:
+          - type: CheckBox
+            name: showOverdispersionPlot
+
+  # ============================================================================
+  # METHOD INFORMATION
+  # ============================================================================
+  - type: CollapseBox
+    label: Method Information
+    collapsed: true
+    stretchFactor: 1
+    children:
+      - type: LayoutBox
+        margin: small
+        stretchFactor: 1
+        children:
+          - type: CheckBox
+            name: showMethodInfo

@@ -1,0 +1,495 @@
+---
+name: ca
+title: Correspondence Analysis
+menuGroup: Chi² Tools
+menuTitle: Correspondence Analysis
+version: '1.2.1'
+jas: '1.2'
+
+description:
+    main: >
+        Performs Correspondence Analysis (CA) with multiple visualisation options:
+        Symmetric CA Plot, Geometric Interpretation Plot, and Contribution Biplot.
+        Supports both Pearson residuals (chi-squared distance) and Freeman-Tukey
+        residuals (Hellinger distance), with optional adjusted standardised residuals
+        for the Pearson framework. The contribution biplot shows which categories 
+        define each dimension, while interpretive tables identify association 
+        patterns using distance-based clustering.
+
+    R:
+        usage: |
+            data('HairEyeColor')
+            dat <- as.data.frame(HairEyeColor)
+            
+            corrAnalysis::ca(
+                data = dat,
+                rows = 'Hair',
+                cols = 'Eye',
+                counts = 'Freq'
+            )
+
+options:
+    # ==========================================================================
+    # DATA INPUT
+    # ==========================================================================
+    - name: data
+      type: Data
+      description: >
+          The dataset containing the variables for analysis.
+
+    - name: rows
+      title: Row Variable
+      type: Variable
+      suggested:
+        - nominal
+        - ordinal
+      permitted:
+        - factor
+      description: >
+          The categorical variable defining the rows of the contingency table.
+
+    - name: cols
+      title: Column Variable
+      type: Variable
+      suggested:
+        - nominal
+        - ordinal
+      permitted:
+        - factor
+      description: >
+          The categorical variable defining the columns of the contingency table.
+
+    - name: counts
+      title: Counts (optional)
+      type: Variable
+      suggested:
+        - continuous
+      permitted:
+        - numeric
+      default: null
+      description: >
+          For pre-aggregated (frequency-form) data, specify the variable 
+          containing frequency counts. Leave empty for case-form data.
+
+    # ==========================================================================
+    # OUTPUT TABLES
+    # ==========================================================================
+    - name: showSummary
+      title: Summary statistics
+      type: Bool
+      default: true
+      description: >
+          Display summary table with test statistic, df, p-value, and total inertia.
+
+    - name: showSeriatedTable
+      title: Seriated contingency table
+      type: Bool
+      default: false
+      description: >
+          Display the contingency table with rows and columns reordered by their
+          principal coordinates (CA seriation). Marginals show the coordinate 
+          values used for ordering. This reveals gradient structures in the data.
+
+    - name: showInertia
+      title: Inertia decomposition
+      type: Bool
+      default: true
+      description: >
+          Display inertia table with Malinvaud's test.
+
+    - name: showDimDef
+      title: Dimension definition
+      type: Bool
+      default: false
+      description: >
+          Display table showing which categories define each dimension.
+
+    - name: showDimSummary
+      title: Dimension summary (poles)
+      type: Bool
+      default: false
+      description: >
+          Display compact table showing which categories define each pole
+          of each dimension. Only above-average contributors are shown.
+
+    - name: showProfiles
+      title: Profiles (interpreted)
+      type: Bool
+      default: false
+      description: >
+          Display table showing the profiles of interpreted categories
+          (the variable opposite to the plane-defining variable).
+
+    - name: showCellContrib
+      title: Residual matrix
+      type: Bool
+      default: false
+      description: >
+          Display residuals in matrix form with marginal percentages showing
+          each row's and column's contribution to the total statistic.
+          Residuals exceeding the threshold are highlighted, as are marginal
+          percentages above the average contribution.
+
+    - name: showCorrelations
+      title: Correlations with dimensions
+      type: Bool
+      default: false
+      description: >
+          Display table showing category correlations (±√cos²) with each dimension.
+
+    - name: showInterpretation
+      title: Interpretation summary
+      type: Bool
+      default: false
+      description: >
+          Display table summarising associations between interpreted categories
+          and the dimension-defining categories.
+
+    - name: showSRDTable
+      title: SRD clusters
+      type: Bool
+      default: false
+      description: >
+          Display table showing clusters from distance-based analysis.
+
+    - name: showSymmetricCoords
+      title: Symmetric plot coordinates
+      type: Bool
+      default: true
+      description: >
+          Display table of principal coordinates for both row and column
+          categories, as used in the symmetric CA plot.
+
+    - name: showContribCoords
+      title: Contribution biplot coordinates
+      type: Bool
+      default: false
+      description: >
+          Display table of coordinates as used in the contribution biplot.
+          The plane-defining variable is shown in standard coordinates;
+          the interpreted variable is shown in principal coordinates.
+          
+    - name: showQualityContrib
+      title: Quality & contributions
+      type: Bool
+      default: true
+      description: >
+          Display table showing quality of representation (cos²) and contributions
+          for all categories across all extracted dimensions. Categories are sorted
+          by total quality (descending). Useful for assessing which categories are
+          well-represented and influential.
+
+    # ==========================================================================
+    # FILTERING OPTIONS
+    # ==========================================================================
+    - name: qualityThreshold
+      title: Min. quality (cos²) for correlations
+      type: Number
+      min: 0
+      max: 1
+      default: 0
+      description: >
+          Hide categories with quality below this threshold from the 
+          correlations table. Set to 0 to show all categories.
+
+    - name: residualThreshold
+      title: Highlight thresh. for residuals (|z|)
+      type: Number
+      min: 0
+      max: 10
+      default: 1.96
+      description: >
+          Residuals with absolute value exceeding this threshold are
+          highlighted. Default is 1.96 (approximately p < 0.05 two-tailed).
+          Set to 0 to disable highlighting.
+
+    # ==========================================================================
+    # ANALYSIS SETTINGS (shared)
+    # ==========================================================================
+    - name: distanceMetric
+      title: Distance metric
+      type: List
+      options:
+        - name: pearson
+          title: Pearson (χ² distance)
+        - name: freemanTukey
+          title: Freeman-Tukey (Hellinger distance)
+      default: pearson
+      description: >
+          Distance metric for CA decomposition. Pearson residuals yield
+          chi-squared distances (classical approach). Freeman-Tukey residuals
+          yield Hellinger distances and are more robust to overdispersion 
+          in sparse tables (Beh, Lombardo & Alberti, 2018).
+
+    - name: residualType
+      title: Residual type (Pearson only)
+      type: List
+      options:
+        - name: standardised
+          title: Standardised
+        - name: adjusted
+          title: Adjusted standardised
+      default: standardised
+      description: >
+          Type of residuals when using Pearson metric. Standardised residuals
+          are classical (O-E)/√E. Adjusted standardised residuals account for
+          marginal constraints, providing more accurate significance testing.
+          This option is ignored when Freeman-Tukey metric is selected.
+
+    - name: nAxes
+      title: Number of axes to extract
+      type: Integer
+      min: 2
+      max: 20
+      default: 2
+      description: >
+          Number of CA dimensions to extract. Default is 2.
+
+    - name: dim1
+      title: Dimension for X-axis
+      type: Integer
+      min: 1
+      max: 20
+      default: 1
+      description: >
+          Which dimension to display on the horizontal axis.
+
+    - name: dim2
+      title: Dimension for Y-axis
+      type: Integer
+      min: 1
+      max: 20
+      default: 2
+      description: >
+          Which dimension to display on the vertical axis.
+
+    # ==========================================================================
+    # SYMMETRIC CA PLOT
+    # ==========================================================================
+    - name: showSymmetricPlot
+      title: Show symmetric CA plot
+      type: Bool
+      default: true
+      description: >
+          Display the classic symmetric CA scatterplot with row and column
+          categories in principal coordinates.
+
+    - name: symmetricShowClusters
+      title: Show SRD clusters
+      type: Bool
+      default: false
+      description: >
+          Display convex hulls around clusters of interpreted categories
+          on the symmetric plot.
+          
+    - name: symmetricClusterTarget
+      title: Cluster target
+      type: List
+      options:
+        - name: rows
+          title: Row categories
+        - name: cols
+          title: Column categories
+        - name: both
+          title: Both
+      default: rows
+      description: >
+          Which categories to cluster on the symmetric plot. 'Both' will show
+          separate cluster hulls for row and column categories.
+          
+    - name: symmetricShowContrib
+      title: Size by contribution
+      type: List
+      options:
+        - name: none
+          title: None
+        - name: rows
+          title: Row categories
+        - name: cols
+          title: Column categories
+      default: none
+      description: >
+          Scale point sizes by contribution to the displayed plane (sum of
+          contributions to the two displayed dimensions). Larger points
+          indicate categories that contribute more to defining the plane.
+
+    - name: symmetricShowQuality
+      title: Colour by quality
+      type: List
+      options:
+        - name: none
+          title: None
+        - name: rows
+          title: Row categories
+        - name: cols
+          title: Column categories
+        - name: both
+          title: Both
+      default: none
+      description: >
+          Adjust point transparency by quality of representation (cos²) on
+          the displayed plane. Fully opaque points are well-represented;
+          faded points have low quality and should be interpreted cautiously.
+
+    # ==========================================================================
+    # GEOMETRIC INTERPRETATION PLOT
+    # ==========================================================================
+    - name: showGeometricPlot
+      title: Show geometric interpretation plot
+      type: Bool
+      default: false
+      description: >
+          Display geometric interpretation plot (Borg-Groenen 2005; Yelland 2010).
+          This visualisation helps interpret relative frequencies by projecting
+          categories onto the line through the origin and a reference category.
+
+    - name: geometricRefVariable
+      title: Reference variable
+      type: List
+      options:
+        - name: rows
+          title: Row categories
+        - name: cols
+          title: Column categories
+      default: rows
+      description: >
+          Which variable contains the reference category for geometric
+          interpretation.
+
+    - name: geometricRefCategoryRow
+      title: Reference category (row)
+      type: Level
+      variable: (rows)
+      description: >
+          The row category to use as reference when Reference variable = Row categories.
+          Categories projecting on the same side of the origin as this reference 
+          have above-average association; those on the opposite side have below-average.
+
+    - name: geometricRefCategoryCol
+      title: Reference category (column)
+      type: Level
+      variable: (cols)
+      description: >
+          The column category to use as reference when Reference variable = Column categories.
+          Categories projecting on the same side of the origin as this reference 
+          have above-average association; those on the opposite side have below-average.
+
+    # ==========================================================================
+    # CONTRIBUTION BIPLOT
+    # ==========================================================================
+    - name: showContribPlot
+      title: Show contribution biplot
+      type: Bool
+      default: false
+      description: >
+          Display the contribution biplot.
+
+    - name: contribFocus
+      title: Plane defined by
+      type: List
+      options:
+        - name: cols
+          title: Column categories
+        - name: rows
+          title: Row categories
+      default: cols
+      description: >
+          Which variable's categories define the CA plane (shown with lines 
+          to origin). The other variable's categories are interpreted 
+          relative to these dimensions.
+
+    - name: contribShowClusters
+      title: Show SRD clusters
+      type: Bool
+      default: false
+      description: >
+          Display convex hulls around clusters of interpreted categories
+          on the contribution biplot.
+
+    - name: showQuality
+      title: Colour by quality (interpreted)
+      type: Bool
+      default: false
+      description: >
+          Colour interpreted categories by their quality of representation.
+
+    - name: hideWeakContrib
+      title: Hide low contributors
+      type: Bool
+      default: false
+      description: >
+          Hide labels for plane-defining categories contributing below average.
+
+    # ==========================================================================
+    # PLOT APPEARANCE (shared)
+    # ==========================================================================
+    - name: showScreePlot
+      title: Show scree plot
+      type: Bool
+      default: false
+      description: >
+          Display a scree plot showing inertia by dimension.
+
+    - name: equalScale
+      title: Equal axis scaling
+      type: Bool
+      default: true
+      description: >
+          Use equal scaling on both axes.
+
+    - name: dotSize
+      title: Point size
+      type: Number
+      min: 0.5
+      max: 5
+      default: 2.5
+      description: >
+          Size of points in the plots.
+
+    - name: labelSize
+      title: Label size
+      type: Number
+      min: 1
+      max: 8
+      default: 3.5
+      description: >
+          Size of category labels.
+
+    # ==========================================================================
+    # CLUSTERING OPTIONS
+    # ==========================================================================
+    - name: clusterAlpha
+      title: Clustering α level
+      type: Number
+      min: 0.01
+      max: 0.50
+      default: 0.05
+      description: >
+          Significance level for distance-based clustering. Categories
+          with statistically indistinguishable profiles (p > α) are grouped.
+
+    # ==========================================================================
+    # DIAGNOSTICS
+    # ==========================================================================
+    - name: showOverdispersionPlot
+      title: Overdispersion diagnostic plot
+      type: Bool
+      default: false
+      description: >
+          Display a diagnostic plot for overdispersion (Beh, Lombardo & Alberti, 
+          2018). If points cluster to the left side of the plot rather than 
+          scattering randomly, overdispersion is present and Freeman-Tukey 
+          residuals should be used instead of Pearson residuals.
+
+    # ==========================================================================
+    # METHOD INFORMATION
+    # ==========================================================================
+    - name: showMethodInfo
+      title: Show detailed method explanations
+      type: Bool
+      default: false
+      description: >
+          Display detailed methodological explanations for correspondence
+          analysis, including descriptions of residual types, distance metrics,
+          contribution biplots, and clustering procedures.
+...

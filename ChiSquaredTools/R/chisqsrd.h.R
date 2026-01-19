@@ -142,7 +142,7 @@ chisqsrdResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
                     list(
                         `name`="totalN", 
                         `title`="Total N", 
-                        `type`="number"),
+                        `type`="integer"),
                     list(
                         `name`="nPercent", 
                         `title`="% N Retained", 

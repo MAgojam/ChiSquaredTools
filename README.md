@@ -10,10 +10,12 @@ ChiSquaredTools provides a point-and-click interface for contingency table analy
 
 ## Features
 
-The module includes eight analytical facilities accessible from the **Chi² Tools** menu in jamovi:
+The module includes nine analytical facilities accessible from the **Chi² Tools** menu in jamovi:
 
 ### 1. Test of Independence
+
 Chi-squared test of independence with multiple testing methods:
+
 - Traditional Pearson chi-squared test
 - (N−1)/N adjusted chi-squared test (for small samples)
 - Permutation-based exact test
@@ -21,7 +23,9 @@ Chi-squared test of independence with multiple testing methods:
 - M test (maximum adjusted residual method)
 
 ### 2. Post-Hoc Analysis
+
 Cell-level diagnostic metrics including:
+
 - Standardised and adjusted standardised residuals
 - Moment-corrected standardised residuals
 - Quetelet Index and IJ association factor
@@ -32,7 +36,9 @@ Cell-level diagnostic metrics including:
 - Difference in Estimated Proportions (DEP)
 
 ### 3. Association & Effect Sizes
+
 Over 20 association measures organised by statistical foundation:
+
 - **Chi-squared-based measures**: Phi (with signed and corrected variants), Cole's C7, Zysno's Phi, Contingency Coefficient C (with adjusted and corrected variants), Cramér's V (with corrected, standardised, and bias-corrected variants), Cohen's w
 - **Distance-based measures**: Ŵ (W-hat) and Sakoda's D (with corrected variants and local cell-level values)
 - **Margin-free measures** (2×2 tables): Odds Ratio, Yule's Q, Yule's Y
@@ -40,13 +46,17 @@ Over 20 association measures organised by statistical foundation:
 - Bootstrap confidence intervals for selected measures
 
 ### 4. Power Analysis
+
 Statistical power tools for study planning:
+
 - A priori sample size determination
 - Post-hoc power calculation
 - Sensitivity analysis
 
 ### 5. Table Reduction (SRD)
+
 Simultaneous Reduction of Dimension for sparse contingency tables using the Orton & Tyers (1991) method:
+
 - Systematic merging of statistically indistinguishable rows and columns
 - Chi-squared distance-based similarity assessment with significance testing
 - Optional pruning of categories too small to contribute meaningful information
@@ -55,19 +65,36 @@ Simultaneous Reduction of Dimension for sparse contingency tables using the Orto
 - Chi-squared retention statistics to assess information preservation
 
 ### 6. Row/Column Clustering
+
 Hierarchical clustering analysis using:
+
 - Ward's method with (A) chi-squared distance (Greenacre, 2017), or (B) Inertia Gain Ratio (Husson et al., 2017)
 - Dendrogram visualisation
 
-### 7. Stratified Analysis (2×2×K)
+### 7. Correspondence Analysis
+
+Correspondence Analysis (CA) for visualising association structure in contingency tables:
+
+- **Multiple visualisation options**: Symmetric CA Plot, Geometric Interpretation Plot (Borg & Groenen, 2005; Yelland, 2010), and Contribution Biplot (Greenacre, 2017)
+- **Distance metrics**: Pearson residuals (χ² distance) or Freeman-Tukey residuals (Hellinger distance; Beh, Lombardo & Alberti, 2018)
+- **Residual types**: Standardised or adjusted standardised residuals for the Pearson framework
+- **Interpretive tables**: Dimension definition, dimension summary (poles), correlations with dimensions, and interpretation summary
+- **Diagnostics**: Malinvaud's test for dimensionality, overdispersion diagnostic plot, SRD-based clustering of interpreted categories
+- **Output options**: Inertia decomposition, category profiles, cell contributions, scree plot
+
+### 8. Stratified Analysis (2×2×K)
+
 For 2×2 tables across K strata:
+
 - Cochran-Mantel-Haenszel test for conditional independence
 - Mantel-Haenszel pooled odds ratio with confidence intervals
 - Breslow-Day and Tarone tests for homogeneity of odds ratios
 - Stratum-specific statistics and forest plots
 
-### 8. Stratified Analysis (R×C×K)
+### 9. Stratified Analysis (R×C×K)
+
 For general R×C tables across K strata:
+
 - Generalised Cochran-Mantel-Haenszel test
 - Log-linear homogeneity test
 - Stratum-specific chi-squared statistics
@@ -76,6 +103,7 @@ For general R×C tables across K strata:
 ## Educational Features
 
 Each facility includes:
+
 - **Method explanations**: Toggleable descriptions with rationale, formulas, and usage guidance
 - **Automatic highlighting**: Significant or noteworthy results are colour-coded for easy identification
 - **Diagnostic decision trees**: Guidance for choosing appropriate methods
@@ -97,14 +125,14 @@ The jamovi library provides pre-built versions for all supported platforms (Wind
 For the latest development version or to build from source:
 
 1. Ensure you have R and the `jmvtools` package installed:
-   ```r
+```r
    install.packages('jmvtools', repos = c('https://repo.jamovi.org', 'https://cran.r-project.org'))
-   ```
+```
 2. Clone or download this repository
 3. Open R in the repository directory and run:
-   ```r
+```r
    jmvtools::install()
-   ```
+```
 
 This will compile the module for your specific platform and install it into your local jamovi installation.
 

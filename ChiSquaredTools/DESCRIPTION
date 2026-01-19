@@ -1,12 +1,12 @@
 Package: ChiSquaredTools
 Type: Package
 Title: Chi-Squared Analysis Tools
-Version: 1.0.0
-Date: 2025-12-30
+Version: 1.1.0
+Date: 2025-01-17
 Author: Gianmarco Alberti
 Maintainer: Gianmarco Alberti <gianmarcoalberti@gmail.com>
 Description: Comprehensive toolkit for chi-squared analysis of contingency tables.
-    Includes eight analytical facilities: (1) Chi-squared testing with traditional,
+    Includes nine analytical facilities: (1) Chi-squared testing with traditional,
     (N-1)/N adjusted, permutation, Monte Carlo, and M test (maximum adjusted residual)
     methods; (2) Post-hoc analysis with cell-level metrics including standardised
     residuals, moment-corrected standardised residuals, adjusted standardised residuals,
@@ -17,15 +17,18 @@ Description: Comprehensive toolkit for chi-squared analysis of contingency table
     foundation, including chi-squared-based, margin-free, and PRE measures;
     (4) Power analysis for a priori sample size determination, post-hoc power
     calculation, and sensitivity analysis; (5) Simultaneous Reduction of Dimension (SRD) 
-    for sparse contingency tables using hypothesis testing to merge statistically indistinguishable 
-    rows and columns;(6) Hierarchical clustering using Ward's
-    method with chi-squared distance and significance testing; (7) Stratified
-    analysis for 2x2xK tables with Cochran-Mantel-Haenszel test, Breslow-Day-Tarone
-    homogeneity test, and forest plots; (8) Stratified analysis for RxCxK tables with
-    generalised CMH test, log-linear homogeneity test, and trajectory plots. Features
-    toggleable method explanations with rationale and usage guidance, automatic
-    significance highlighting, diagnostic decision trees, and proper academic citations.
+    for sparse contingency tables using hypothesis testing to merge statistically 
+    indistinguishable rows and columns; (6) Hierarchical clustering using Ward's
+    method with chi-squared distance and significance testing; (7) Correspondence 
+    Analysis with symmetric CA plot, geometric interpretation plot, and contribution 
+    biplot, supporting both Pearson and Freeman-Tukey residuals with optional adjusted 
+    standardised residuals; (8) Stratified analysis for 2x2xK tables with 
+    Cochran-Mantel-Haenszel test, Breslow-Day-Tarone homogeneity test, and forest 
+    plots; (9) Stratified analysis for RxCxK tables with generalised CMH test, 
+    log-linear homogeneity test, and trajectory plots. Features toggleable method 
+    explanations with rationale and usage guidance, automatic significance 
+    highlighting, diagnostic decision trees, and proper academic citations.
 License: GPL (>= 3)
 Encoding: UTF-8
 LazyData: true
-Imports: jmvcore, R6, stats, ggplot2, ggdendro
+Imports: jmvcore, R6, stats, ggplot2, ggdendro, ggrepel

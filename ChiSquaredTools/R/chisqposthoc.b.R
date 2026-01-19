@@ -272,14 +272,14 @@ chisqposthocClass <- R6::R6Class(
       if (self$options$quetelet) {
         quetelet <- private$.computeQueteletIndex(contingency_table, expected)
         private$.populatePlainMetricTable(quetelet, 'queteletTable', 
-                                          threshold = NULL, 
+                                          threshold = TRUE, 
                                           threshold_type = "empirical_q")
       }
       
       if (self$options$ij) {
         ij <- private$.computeIJAssociation(contingency_table, expected)
         private$.populatePlainMetricTable(ij, 'ijTable', 
-                                          threshold = NULL, 
+                                          threshold = TRUE, 
                                           threshold_type = "empirical_ij")
       }
       

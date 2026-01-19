@@ -290,14 +290,15 @@ chisqsrdClass <- R6::R6Class(
                                            " × ", ncol(matrix_after_row_reduction), ")"))
       
       # ---------------------------------------------------------------------
-      # STEP 3: SRD - COLUMN REDUCTION
+      # STEP 3: SRD - COLUMN REDUCTION (on pruned matrix, NOT row-reduced)
       # ---------------------------------------------------------------------
       col_merge_history <- NULL
       col_groups <- NULL
+      matrix_after_col_reduction <- matrix_after_pruning  # Start fresh from pruned matrix
       
-      if (ncol(working_matrix) > 1) {
-        col_result <- private$.performSRD(working_matrix, dim = "col", alpha = alpha)
-        working_matrix <- col_result$matrix
+      if (ncol(matrix_after_pruning) > 1) {
+        col_result <- private$.performSRD(matrix_after_pruning, dim = "col", alpha = alpha)
+        matrix_after_col_reduction <- col_result$matrix
         col_merge_history <- col_result$merge_history
         col_groups <- col_result$groups
         
@@ -310,26 +311,53 @@ chisqsrdClass <- R6::R6Class(
         # Only one column - no merging possible
         private$.populateSingleItemTable(self$results$colMergeTable, "column")
         col_groups <- list()
-        col_groups[[colnames(working_matrix)[1]]] <- colnames(working_matrix)[1]
+        col_groups[[colnames(matrix_after_pruning)[1]]] <- colnames(matrix_after_pruning)[1]
         private$.populateGroupsTable(col_groups, self$results$colGroupsTable, "column", orig_nCols, alpha)
       }
       
-      # Populate Column-Grouped Table (after column reduction, which is on already row-reduced matrix)
-      private$.populateDynamicTable(working_matrix, 
+      # Populate Column-Grouped Table (original rows, columns merged)
+      private$.populateDynamicTable(matrix_after_col_reduction, 
                                     self$results$colReducedTable,
-                                    paste0("Column-Grouped Table (", nrow(working_matrix), 
-                                           " × ", ncol(working_matrix), ")"))
+                                    paste0("Column-Grouped Table (", nrow(matrix_after_col_reduction), 
+                                           " × ", ncol(matrix_after_col_reduction), ")"))
+      
+      # ---------------------------------------------------------------------
+      # STEP 4: FINAL COMBINED TABLE (apply column groupings to row-reduced matrix)
+      # ---------------------------------------------------------------------
+      final_matrix <- matrix_after_row_reduction
+      
+      if (length(col_groups) > 0 && length(col_groups) < ncol(matrix_after_row_reduction)) {
+        # Aggregate columns according to col_groups
+        new_col_names <- names(col_groups)
+        n_new_cols <- length(new_col_names)
+        
+        combined_matrix <- matrix(0, nrow = nrow(final_matrix), ncol = n_new_cols)
+        rownames(combined_matrix) <- rownames(final_matrix)
+        colnames(combined_matrix) <- new_col_names
+        
+        for (g in seq_along(col_groups)) {
+          group_name <- new_col_names[g]
+          member_cols <- col_groups[[g]]
+          # Sum the columns that belong to this group
+          if (length(member_cols) == 1) {
+            combined_matrix[, g] <- final_matrix[, member_cols, drop = TRUE]
+          } else {
+            combined_matrix[, g] <- rowSums(final_matrix[, member_cols, drop = FALSE])
+          }
+        }
+        final_matrix <- combined_matrix
+      }
       
       # Final statistics
-      final_N <- sum(working_matrix)
-      final_chi <- if (nrow(working_matrix) > 1 && ncol(working_matrix) > 1) {
-        chi_result <- suppressWarnings(stats::chisq.test(working_matrix)$statistic)
+      final_N <- sum(final_matrix)
+      final_chi <- if (nrow(final_matrix) > 1 && ncol(final_matrix) > 1) {
+        chi_result <- suppressWarnings(stats::chisq.test(final_matrix)$statistic)
         if (is.na(chi_result) || is.nan(chi_result)) NA else chi_result
       } else {
         NA
       }
-      final_nRows <- nrow(working_matrix)
-      final_nCols <- ncol(working_matrix)
+      final_nRows <- nrow(final_matrix)
+      final_nCols <- ncol(final_matrix)
       final_df <- (final_nRows - 1) * (final_nCols - 1)
       
       # ---------------------------------------------------------------------
@@ -344,7 +372,7 @@ chisqsrdClass <- R6::R6Class(
       # ---------------------------------------------------------------------
       # Populate Final Reduced Table
       # ---------------------------------------------------------------------
-      private$.populateDynamicTable(working_matrix, 
+      private$.populateDynamicTable(final_matrix, 
                                     self$results$reducedTable,
                                     paste0("Reduced Contingency Table (", final_nRows, 
                                            " × ", final_nCols, ")"))
@@ -825,9 +853,9 @@ chisqsrdClass <- R6::R6Class(
       table$addColumn(name = 'rowName', title = 'Row', type = 'text')
       for (j in seq_len(J)) {
         table$addColumn(name = paste0('col', j), title = col_labels[j],
-                        type = 'number')
+                        type = 'integer')
       }
-      table$addColumn(name = 'rowTotal', title = 'Total', type = 'number')
+      table$addColumn(name = 'rowTotal', title = 'Total', type = 'integer')
       
       # Add data rows
       for (i in seq_len(I)) {

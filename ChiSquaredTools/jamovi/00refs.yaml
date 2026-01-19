@@ -31,12 +31,30 @@ refs:
         publisher: 'Routledge'
         edition: '2nd'
 
+    beh2012:
+       type: 'article'
+       author: 'Beh, E. J.'
+       year: 2012
+       title: 'Simple correspondence analysis using adjusted residuals'
+       publisher: 'Journal of Statistical Planning and Inference'
+       volume: 142
+       pages: '965-973'
+
     beh2014:
         type: 'book'
         author: 'Beh, E. J., & Lombardo, R.'
         year: 2014
         title: 'Correspondence Analysis: Theory, Practice and New Strategies'
         publisher: 'Wiley'
+        
+    beh2018:
+        type: 'article'
+        author: 'Beh, E. J., Lombardo, R., & Alberti, G.'
+        year: 2018
+        title: 'Correspondence analysis and the Freeman-Tukey statistic: A study of archaeological data'
+        publisher: 'Computational Statistics and Data Analysis'
+        volume: 128
+        pages: '73-86'
 
     bendixen1995:
         type: 'article'
@@ -95,6 +113,14 @@ refs:
         volume: 35
         issue: 3
         pages: '429-446'
+        
+    borggroenen2005:
+        type: 'book'
+        author: 'Borg, I., & Groenen, P. J. F.'
+        year: 2005
+        title: 'Modern Multidimensional Scaling - Theory and Applications'
+        publisher: 'Springer Science & Business Media'
+        edition: '2nd'
 
     breslowday1980:
         type: 'book'
@@ -261,14 +287,13 @@ refs:
         issue: 370
         pages: '395-398'
         
-    gambirasio2024:
-        type: 'article'
+    gambirasio2019:
+        type: 'preprint'
         author: 'Gambirasio, G.'
-        year: 2024
-        title: 'DEP: A new measure of dependence in contingency tables'
-        publisher: '[journal name]'
-        volume: '[volume]'
-        pages: '[pages]'
+        year: 2019
+        title: 'A deterministic approach to contingency tables'
+        publisher: 'OSF Preprints'
+        url: 'https://osf.io/preprints/osf/s94zr'
 
     garciaperez2003:
         type: 'article'
@@ -402,6 +427,15 @@ refs:
         year: 1961
         title: 'The Advanced Theory of Statistics: Volume 2 - Inference and Relationship'
         publisher: 'Hafner Publishing Company'
+
+    koehler1980:
+       type: 'article'
+       author: 'Koehler, K. J., & Larntz, K.'
+       year: 1980
+       title: 'An empirical investigation of goodness-of-fit statistics for sparse multinomials'
+       publisher: 'Journal of the American Statistical Association'
+       volume: 75
+       pages: '336-344'
 
     kvalseth2018a:
         type: 'article'
@@ -618,6 +652,14 @@ refs:
         issue: 2
         pages: '245-250'
 
+    saporta2006:
+        type: 'book'
+        author: 'Saporta, G.'
+        year: 2006
+        title: 'Probabilités, analyse des données et statistique'
+        publisher: 'Éditions Technip'
+        edition: '2nd'
+
     sheskin2011:
         type: 'book'
         author: 'Sheskin, D. J.'
@@ -706,6 +748,14 @@ refs:
         publisher: 'Methods of Psychological Research Online'
         volume: 13
         pages: '15-19'
+
+    yelland2010:
+        type: 'article'
+        author: 'Yelland, P.'
+        year: 2010
+        title: 'An Introduction to Correspondence Analysis'
+        publisher: 'The Mathematica Journal'
+        volume: 12
 
     yule1912:
         type: 'article'

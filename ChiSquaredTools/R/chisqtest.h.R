@@ -135,6 +135,7 @@ chisqtestResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
         crosstabTable = function() private$.items[["crosstabTable"]],
         expectedTable = function() private$.items[["expectedTable"]],
         tableCharacteristics = function() private$.items[["tableCharacteristics"]],
+        validityAssessment = function() private$.items[["validityAssessment"]],
         testResults = function() private$.items[["testResults"]],
         permDistPlot = function() private$.items[["permDistPlot"]],
         mcDistPlot = function() private$.items[["mcDistPlot"]],
@@ -146,22 +147,7 @@ chisqtestResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
             super$initialize(
                 options=options,
                 name="",
-                title="Chi-Squared Test of Independence",
-                refs=list(
-                    "agresti2013",
-                    "agresti2022",
-                    "alberti2024",
-                    "campbell2007",
-                    "fuchs1980",
-                    "lin2015",
-                    "phipson2010",
-                    "rasch2011",
-                    "rhoades1982",
-                    "richardson2011",
-                    "roscoe1971",
-                    "upton1982",
-                    "utts2014",
-                    "zar2014"))
+                title="Chi-Squared Test of Independence")
             self$add(jmvcore::Table$new(
                 options=options,
                 name="crosstabTable",
@@ -198,6 +184,36 @@ chisqtestResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
                 refs=list(
                     "alberti2024",
                     "rhoades1982",
+                    "roscoe1971",
+                    "zar2014")))
+            self$add(jmvcore::Table$new(
+                options=options,
+                name="validityAssessment",
+                title="Test Validity Assessment",
+                rows=0,
+                clearWith=list(
+                    "rows",
+                    "cols"),
+                columns=list(
+                    list(
+                        `name`="diagnostic", 
+                        `title`="Diagnostic", 
+                        `type`="text"),
+                    list(
+                        `name`="value", 
+                        `title`="Value", 
+                        `type`="text"),
+                    list(
+                        `name`="threshold", 
+                        `title`="Threshold", 
+                        `type`="text"),
+                    list(
+                        `name`="status", 
+                        `title`="Status", 
+                        `type`="text")),
+                refs=list(
+                    "alberti2024",
+                    "koehler1980",
                     "roscoe1971",
                     "zar2014")))
             self$add(jmvcore::Table$new(
@@ -361,6 +377,7 @@ chisqtestBase <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
 #'   \code{results$crosstabTable} \tab \tab \tab \tab \tab a table \cr
 #'   \code{results$expectedTable} \tab \tab \tab \tab \tab a table \cr
 #'   \code{results$tableCharacteristics} \tab \tab \tab \tab \tab a table \cr
+#'   \code{results$validityAssessment} \tab \tab \tab \tab \tab a table \cr
 #'   \code{results$testResults} \tab \tab \tab \tab \tab a table \cr
 #'   \code{results$permDistPlot} \tab \tab \tab \tab \tab an image \cr
 #'   \code{results$mcDistPlot} \tab \tab \tab \tab \tab an image \cr

@@ -2,22 +2,6 @@
 name: chisqtest
 title: Chi-Squared Test of Independence
 jrs: '1.1'
-refs:
-  - agresti2013
-  - agresti2022
-  - alberti2024
-  - campbell2007
-  - fuchs1980
-  - lin2015
-  - phipson2010
-  - rasch2011
-  - rhoades1982
-  - richardson2011
-  - roscoe1971
-  - upton1982
-  - utts2014
-  - zar2014
-
 items:
     - name: crosstabTable
       title: Observed Contingency Table
@@ -52,6 +36,31 @@ items:
       refs:
        - alberti2024
        - rhoades1982
+       - roscoe1971
+       - zar2014
+    - name: validityAssessment
+      title: Test Validity Assessment
+      type: Table
+      rows: 0
+      clearWith:
+        - rows
+        - cols
+      columns:
+        - name: diagnostic
+          title: 'Diagnostic'
+          type: text
+        - name: value
+          title: 'Value'
+          type: text
+        - name: threshold
+          title: 'Threshold'
+          type: text
+        - name: status
+          title: 'Status'
+          type: text
+      refs:
+       - alberti2024
+       - koehler1980
        - roscoe1971
        - zar2014
 

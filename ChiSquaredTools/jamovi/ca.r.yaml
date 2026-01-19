@@ -1,0 +1,531 @@
+---
+name: ca
+title: Correspondence Analysis
+jrs: '1.1'
+
+items:
+    # ==========================================================================
+    # OBSERVED CONTINGENCY TABLE
+    # ==========================================================================
+    - name: observedTable
+      title: Observed Contingency Table
+      type: Table
+      visible: true
+      clearWith:
+        - rows
+        - cols
+        - counts
+      columns: []
+
+    # ==========================================================================
+    # SUMMARY TABLE
+    # ==========================================================================
+    - name: summaryTable
+      title: Summary
+      type: Table
+      rows: 1
+      refs: 
+      - beh2012
+      - beh2014
+      - greenacre2017
+      visible: (showSummary)
+      clearWith:
+        - rows
+        - cols
+        - counts
+        - distanceMetric
+        - residualType
+      columns:
+        - name: statistic
+          title: Statistic
+          type: number
+          format: zto
+        - name: df
+          title: df
+          type: integer
+        - name: pvalue
+          title: p
+          type: number
+          format: zto,pvalue
+        - name: totalInertia
+          title: Total Inertia
+          type: number
+          format: zto
+        - name: nRows
+          title: Rows
+          type: integer
+        - name: nCols
+          title: Columns
+          type: integer
+
+    # ==========================================================================
+    # INERTIA TABLE
+    # ==========================================================================
+    - name: inertiaTable
+      title: Inertia Decomposition
+      type: Table
+      refs: 
+      - beh2014
+      - greenacre2017
+      - saporta2006
+      visible: (showInertia)
+      clearWith:
+        - rows
+        - cols
+        - counts
+        - nAxes
+        - distanceMetric
+        - residualType
+      columns:
+        - name: dim
+          title: Dimension
+          type: integer
+        - name: eigenvalue
+          title: Eigenvalue
+          type: number
+          format: zto
+        - name: percent
+          title: '%'
+          type: number
+          format: zto
+        - name: cumPercent
+          title: 'Cumulative %'
+          type: number
+          format: zto
+        - name: malinChi
+          title: Statistic
+          superTitle: "Malinvaud's Test"
+          type: number
+          format: zto
+        - name: malinDf
+          title: df
+          superTitle: "Malinvaud's Test"
+          type: integer
+        - name: malinP
+          title: p
+          superTitle: "Malinvaud's Test"
+          type: number
+          format: zto,pvalue
+
+
+    # ==========================================================================
+    # PRINCIPAL COORDINATES TABLE (SYMMETRIC PLOT)
+    # ==========================================================================
+    - name: symmetricCoordsTable
+      title: Principal Coordinates (Symmetric Plot)
+      type: Table
+      refs: greenacre2017
+      visible: (showSymmetricCoords)
+      clearWith:
+        - rows
+        - cols
+        - counts
+        - nAxes
+        - distanceMetric
+        - residualType
+      columns:
+        - name: category
+          title: Category
+          type: text
+        - name: type
+          title: Type
+          type: text
+
+    # ==========================================================================
+    # COORDINATES TABLE (CONTRIBUTION BIPLOT)
+    # ==========================================================================
+    - name: contribCoordsTable
+      title: Coordinates (Contribution Biplot)
+      type: Table
+      refs: greenacre2017
+      visible: (showContribCoords)
+      clearWith:
+        - rows
+        - cols
+        - counts
+        - nAxes
+        - contribFocus
+        - distanceMetric
+        - residualType
+      columns:
+        - name: category
+          title: Category
+          type: text
+        - name: type
+          title: Type
+          type: text
+        - name: coordType
+          title: Coordinate Type
+          type: text
+          
+    # ==========================================================================
+    # QUALITY & CONTRIBUTIONS TABLE
+    # ==========================================================================
+    - name: qualityContribTable
+      title: Quality & Contributions
+      type: Table
+      refs: greenacre2017
+      visible: (showQualityContrib)
+      clearWith:
+        - rows
+        - cols
+        - counts
+        - nAxes
+        - distanceMetric
+        - residualType
+      columns:
+        - name: category
+          title: Category
+          type: text
+        - name: type
+          title: Type
+          type: text
+
+    # ==========================================================================
+    # DIMENSION DEFINITION TABLE
+    # ==========================================================================
+    - name: dimDefTable
+      title: Dimension Definition
+      type: Table
+      refs: greenacre2017
+      visible: (showDimDef)
+      clearWith:
+        - rows
+        - cols
+        - counts
+        - nAxes
+        - contribFocus
+        - distanceMetric
+        - residualType
+      columns:
+        - name: dimension
+          title: Dimension
+          type: text
+        - name: category
+          title: Category
+          type: text
+        - name: contrib
+          title: 'Contribution %'
+          type: number
+          format: zto
+        - name: cumulContrib
+          title: 'Cumulative %'
+          type: number
+          format: zto
+        - name: direction
+          title: Direction
+          type: text
+        - name: avgContrib
+          title: 'Avg %'
+          type: number
+          format: zto
+          visible: false
+
+    # ==========================================================================
+    # DIMENSION SUMMARY TABLE
+    # ==========================================================================
+    - name: dimSummaryTable
+      title: Dimension Summary
+      type: Table
+      refs: greenacre2017
+      visible: (showDimSummary)
+      clearWith:
+        - rows
+        - cols
+        - counts
+        - nAxes
+        - contribFocus
+        - distanceMetric
+        - residualType
+      columns:
+        - name: dimension
+          title: Dimension
+          type: text
+        - name: variance
+          title: '% Inertia'
+          type: number
+          format: zto
+        - name: negativePole
+          title: 'Negative Pole (−)'
+          type: text
+        - name: positivePole
+          title: 'Positive Pole (+)'
+          type: text
+
+    # ==========================================================================
+    # CORRELATIONS WITH DIMENSIONS TABLE
+    # ==========================================================================
+    - name: correlTable
+      title: Correlations with Dimensions
+      type: Table
+      refs: greenacre2017
+      visible: (showCorrelations)
+      clearWith:
+        - rows
+        - cols
+        - counts
+        - nAxes
+        - contribFocus
+        - distanceMetric
+        - residualType
+        - qualityThreshold
+      columns: []
+
+    # ==========================================================================
+    # INTERPRETATION SUMMARY TABLE
+    # ==========================================================================
+    - name: interpTable
+      title: Interpretation Summary
+      type: Table
+      refs: greenacre2017
+      visible: (showInterpretation)
+      clearWith:
+        - rows
+        - cols
+        - counts
+        - nAxes
+        - contribFocus
+        - distanceMetric
+        - residualType
+      columns:
+        - name: category
+          title: Defining Category
+          type: text
+        - name: direction
+          title: Direction
+          type: text
+        - name: association
+          title: Associated Categories
+          type: text
+
+    # ==========================================================================
+    # PROFILES TABLE
+    # ==========================================================================
+    - name: profilesTable
+      title: Profiles
+      type: Table
+      refs: greenacre2017
+      visible: (showProfiles)
+      clearWith:
+        - rows
+        - cols
+        - counts
+        - contribFocus
+        - distanceMetric
+        - residualType
+      columns: []
+
+    # ==========================================================================
+    # RESIDUAL MATRIX TABLE
+    # ==========================================================================
+    - name: residualMatrixTable
+      title: Residual Matrix
+      type: Table
+      refs: 
+      - beh2018
+      visible: (showCellContrib)
+      clearWith:
+        - rows
+        - cols
+        - counts
+        - distanceMetric
+        - residualType
+        - residualThreshold
+      columns: []
+
+    # ==========================================================================
+    # SRD CLUSTERS TABLE
+    # ==========================================================================
+    - name: srdTable
+      title: SRD Clusters
+      type: Table
+      refs: ortontyers1991
+      visible: (showSRDTable)
+      clearWith:
+        - rows
+        - cols
+        - counts
+        - contribFocus
+        - clusterAlpha
+        - distanceMetric
+        - residualType
+      columns:
+        - name: cluster
+          title: Cluster
+          type: integer
+        - name: members
+          title: Categories
+          type: text
+        - name: nMembers
+          title: n
+          type: integer
+        - name: mergePvalue
+          title: 'Merge p'
+          type: number
+          format: zto,pvalue
+
+    # ==========================================================================
+    # SERIATED CONTINGENCY TABLE
+    # ==========================================================================
+    - name: seriatedTable
+      title: Seriated Contingency Table
+      type: Table
+      visible: (showSeriatedTable)
+      clearWith:
+        - rows
+        - cols
+        - counts
+        - dim1
+        - dim2
+        - distanceMetric
+        - residualType
+      columns: []
+
+    # ==========================================================================
+    # PLOTS
+    # ==========================================================================
+    
+    # --------------------------------------------------------------------------
+    # Scree Plot
+    # --------------------------------------------------------------------------
+    - name: screePlot
+      title: Scree Plot
+      type: Image
+      width: 500
+      height: 400
+      renderFun: .plotScree
+      visible: (showScreePlot)
+      requiresData: true
+      clearWith:
+        - rows
+        - cols
+        - counts
+        - nAxes
+        - distanceMetric
+        - residualType
+
+    # --------------------------------------------------------------------------
+    # Symmetric CA Plot
+    # --------------------------------------------------------------------------
+    - name: symmetricPlot
+      title: Symmetric CA Plot
+      type: Image
+      width: 650
+      height: 550
+      renderFun: .plotSymmetric
+      refs:
+        - beh2014
+        - greenacre2017
+      visible: (showSymmetricPlot)
+      requiresData: true
+      clearWith:
+        - rows
+        - cols
+        - counts
+        - nAxes
+        - dim1
+        - dim2
+        - equalScale
+        - dotSize
+        - labelSize
+        - symmetricShowClusters
+        - symmetricClusterTarget
+        - symmetricShowContrib
+        - symmetricShowQuality
+        - clusterAlpha
+        - distanceMetric
+        - residualType
+
+    # --------------------------------------------------------------------------
+    # Geometric Interpretation Plot
+    # --------------------------------------------------------------------------
+    - name: geometricPlot
+      title: Geometric Interpretation Plot
+      type: Image
+      width: 650
+      height: 550
+      renderFun: .plotGeometric
+      refs:
+        - borggroenen2005
+        - yelland2010
+      visible: (showGeometricPlot)
+      requiresData: true
+      clearWith:
+        - rows
+        - cols
+        - counts
+        - nAxes
+        - dim1
+        - dim2
+        - equalScale
+        - dotSize
+        - labelSize
+        - geometricRefVariable
+        - geometricRefCategoryRow
+        - geometricRefCategoryCol
+        - distanceMetric
+        - residualType
+
+    # --------------------------------------------------------------------------
+    # Contribution Biplot
+    # --------------------------------------------------------------------------
+    - name: contribPlot
+      title: Contribution Biplot
+      type: Image
+      width: 650
+      height: 550
+      renderFun: .plotContribBiplot
+      refs: greenacre2017
+      visible: (showContribPlot)
+      requiresData: true
+      clearWith:
+        - rows
+        - cols
+        - counts
+        - nAxes
+        - dim1
+        - dim2
+        - contribFocus
+        - equalScale
+        - dotSize
+        - labelSize
+        - showQuality
+        - hideWeakContrib
+        - contribShowClusters
+        - clusterAlpha
+        - distanceMetric
+        - residualType
+
+    # --------------------------------------------------------------------------
+    # Overdispersion Diagnostic Plot
+    # --------------------------------------------------------------------------
+    - name: overdispersionPlot
+      title: Overdispersion Diagnostic Plot
+      type: Image
+      width: 550
+      height: 450
+      renderFun: .plotOverdispersion
+      refs: beh2018
+      visible: (showOverdispersionPlot)
+      requiresData: true
+      clearWith:
+        - rows
+        - cols
+        - counts
+
+    # ==========================================================================
+    # METHOD INFO (HTML)
+    # ==========================================================================
+    - name: methodInfo
+      title: Method Details
+      type: Html
+      visible: (showMethodInfo)
+      clearWith:
+        - rows
+        - cols
+        - distanceMetric
+        - residualType
+        - contribFocus
+        - contribShowClusters
+        - symmetricShowClusters
+...

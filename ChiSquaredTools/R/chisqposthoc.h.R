@@ -501,7 +501,7 @@ chisqposthocResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Clas
                         `title`="Significance", 
                         `type`="text")),
                 refs=list(
-                    "gambirasio2024")))
+                    "gambirasio2019")))
             self$add(jmvcore::Image$new(
                 options=options,
                 name="depPlot",

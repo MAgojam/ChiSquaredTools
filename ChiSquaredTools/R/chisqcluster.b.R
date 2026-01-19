@@ -850,12 +850,6 @@ chisqclusterClass <- R6::R6Class(
       }
       
       # Add summary as table footnote
-      summary_text <- paste0(
-        "Initial χ² = ", sprintf("%.3f", col_result$initial_chi_square), "; ",
-        "Critical value (p=0.05) = ", sprintf("%.3f", col_result$critical_value), "; ",
-        "Last significant step = ", sig_step, ". ",
-        interpretation
-      )
       table$setNote('colClusterSummary', summary_text, init = FALSE)
       
       # Populate significant groups table using addRow
