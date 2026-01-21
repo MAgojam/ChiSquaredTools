@@ -34,6 +34,7 @@ caOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
             symmetricClusterTarget = "rows",
             symmetricShowContrib = "none",
             symmetricShowQuality = "none",
+            symmetricShowPoints = "both",
             showGeometricPlot = FALSE,
             geometricRefVariable = "rows",
             geometricRefCategoryRow = NULL,
@@ -210,6 +211,14 @@ caOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
                     "cols",
                     "both"),
                 default="none")
+            private$..symmetricShowPoints <- jmvcore::OptionList$new(
+                "symmetricShowPoints",
+                symmetricShowPoints,
+                options=list(
+                    "both",
+                    "rows",
+                    "cols"),
+                default="both")
             private$..showGeometricPlot <- jmvcore::OptionBool$new(
                 "showGeometricPlot",
                 showGeometricPlot,
@@ -315,6 +324,7 @@ caOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
             self$.addOption(private$..symmetricClusterTarget)
             self$.addOption(private$..symmetricShowContrib)
             self$.addOption(private$..symmetricShowQuality)
+            self$.addOption(private$..symmetricShowPoints)
             self$.addOption(private$..showGeometricPlot)
             self$.addOption(private$..geometricRefVariable)
             self$.addOption(private$..geometricRefCategoryRow)
@@ -361,6 +371,7 @@ caOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
         symmetricClusterTarget = function() private$..symmetricClusterTarget$value,
         symmetricShowContrib = function() private$..symmetricShowContrib$value,
         symmetricShowQuality = function() private$..symmetricShowQuality$value,
+        symmetricShowPoints = function() private$..symmetricShowPoints$value,
         showGeometricPlot = function() private$..showGeometricPlot$value,
         geometricRefVariable = function() private$..geometricRefVariable$value,
         geometricRefCategoryRow = function() private$..geometricRefCategoryRow$value,
@@ -406,6 +417,7 @@ caOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
         ..symmetricClusterTarget = NA,
         ..symmetricShowContrib = NA,
         ..symmetricShowQuality = NA,
+        ..symmetricShowPoints = NA,
         ..showGeometricPlot = NA,
         ..geometricRefVariable = NA,
         ..geometricRefCategoryRow = NA,
@@ -868,6 +880,7 @@ caResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
                     "symmetricClusterTarget",
                     "symmetricShowContrib",
                     "symmetricShowQuality",
+                    "symmetricShowPoints",
                     "clusterAlpha",
                     "distanceMetric",
                     "residualType")))
@@ -1068,6 +1081,9 @@ caBase <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
 #'   representation (cos²) on the displayed plane. Fully opaque points are
 #'   well-represented; faded points have low quality and should be interpreted
 #'   cautiously.
+#' @param symmetricShowPoints Which categories to display on the symmetric
+#'   plot. 'Rows only' hides column points and labels; 'Columns only' hides row
+#'   points and labels. Useful for reducing clutter in crowded plots.
 #' @param showGeometricPlot Display geometric interpretation plot
 #'   (Borg-Groenen 2005; Yelland 2010). This visualisation helps interpret
 #'   relative frequencies by projecting categories onto the line through the
@@ -1167,6 +1183,7 @@ ca <- function(
     symmetricClusterTarget = "rows",
     symmetricShowContrib = "none",
     symmetricShowQuality = "none",
+    symmetricShowPoints = "both",
     showGeometricPlot = FALSE,
     geometricRefVariable = "rows",
     geometricRefCategoryRow,
@@ -1229,6 +1246,7 @@ ca <- function(
         symmetricClusterTarget = symmetricClusterTarget,
         symmetricShowContrib = symmetricShowContrib,
         symmetricShowQuality = symmetricShowQuality,
+        symmetricShowPoints = symmetricShowPoints,
         showGeometricPlot = showGeometricPlot,
         geometricRefVariable = geometricRefVariable,
         geometricRefCategoryRow = geometricRefCategoryRow,

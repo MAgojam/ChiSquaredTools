@@ -233,11 +233,6 @@ children:
         children:
           - type: CheckBox
             name: showSymmetricPlot
-          - type: CheckBox
-            name: symmetricShowClusters
-          - type: ComboBox
-            name: symmetricClusterTarget
-            enable: (symmetricShowClusters)
       - type: LayoutBox
         margin: small
         stretchFactor: 1
@@ -258,6 +253,21 @@ children:
             children:
               - type: ComboBox
                 name: symmetricShowQuality
+      - type: LayoutBox
+        margin: small
+        stretchFactor: 1
+        children:
+          - type: ComboBox
+            name: symmetricShowPoints
+      - type: LayoutBox
+        margin: small
+        stretchFactor: 1
+        children:
+          - type: CheckBox
+            name: symmetricShowClusters
+          - type: ComboBox
+            name: symmetricClusterTarget
+            enable: (symmetricShowClusters)
 
   # ============================================================================
   # GEOMETRIC INTERPRETATION PLOT

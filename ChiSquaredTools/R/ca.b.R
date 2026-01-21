@@ -2634,6 +2634,11 @@ caClass <- if (requireNamespace('jmvcore', quietly = TRUE)) R6::R6Class(
             clusterTarget <- self$options$symmetricClusterTarget
             showContrib <- self$options$symmetricShowContrib
             showQuality <- self$options$symmetricShowQuality
+            showPoints <- self$options$symmetricShowPoints
+            
+            # Determine which point types to display
+            showRowPoints <- showPoints %in% c("both", "rows")
+            showColPoints <- showPoints %in% c("both", "cols")
             
             # Check dimension validity
             if (dim1 > ca$n_axes || dim2 > ca$n_axes) {
@@ -2681,7 +2686,7 @@ caClass <- if (requireNamespace('jmvcore', quietly = TRUE)) R6::R6Class(
             p <- p + ggplot2::geom_hline(yintercept = 0, linewidth = 0.5, colour = "grey70", linetype = "dashed")
             p <- p + ggplot2::geom_vline(xintercept = 0, linewidth = 0.5, colour = "grey70", linetype = "dashed")
             
-            # SRD clusters (if requested)
+            # SRD clusters (if requested) - only draw for visible point types
             if (showClusters) {
                 row_colours <- c("#E41A1C", "#FB6A4A", "#FC9272", "#FCBBA1")
                 col_colours <- c("#2171B5", "#4292C6", "#6BAED6", "#9ECAE1")
@@ -2726,85 +2731,91 @@ caClass <- if (requireNamespace('jmvcore', quietly = TRUE)) R6::R6Class(
                     return(p)
                 }
                 
-                if (clusterTarget == "rows" || clusterTarget == "both") {
+                # Only draw clusters for point types that are visible
+                if (showRowPoints && (clusterTarget == "rows" || clusterTarget == "both")) {
                     p <- draw_clusters(p, private$.srdResultRows, row_df, row_colours, "dashed")
                 }
-                if (clusterTarget == "cols" || clusterTarget == "both") {
+                if (showColPoints && (clusterTarget == "cols" || clusterTarget == "both")) {
                     p <- draw_clusters(p, private$.srdResultCols, col_df, col_colours, "dotted")
                 }
             }
             
             # Determine which aesthetics to map
             # Note: contribution has no "both" option
-            useContribRows <- showContrib == "rows"
-            useContribCols <- showContrib == "cols"
-            useQualityRows <- showQuality %in% c("rows", "both")
-            useQualityCols <- showQuality %in% c("cols", "both")
+            # Only apply aesthetics if the corresponding points are visible
+            useContribRows <- showContrib == "rows" && showRowPoints
+            useContribCols <- showContrib == "cols" && showColPoints
+            useQualityRows <- showQuality %in% c("rows", "both") && showRowPoints
+            useQualityCols <- showQuality %in% c("cols", "both") && showColPoints
             
             # -----------------------------------------------------------------
-            # ROW POINTS
+            # ROW POINTS (only if visible)
             # -----------------------------------------------------------------
-            if (useQualityRows && useContribRows) {
-                # Both quality (colour) and contribution (size)
-                p <- p + ggplot2::geom_point(
-                    data = row_df,
-                    ggplot2::aes(x = x, y = y, fill = quality, size = contrib),
-                    colour = "#67000D", shape = 21, stroke = 0.6
-                )
-            } else if (useQualityRows) {
-                # Quality only (colour)
-                p <- p + ggplot2::geom_point(
-                    data = row_df,
-                    ggplot2::aes(x = x, y = y, fill = quality),
-                    colour = "#67000D", shape = 21, size = dotSize, stroke = 0.6
-                )
-            } else if (useContribRows) {
-                # Contribution only (size)
-                p <- p + ggplot2::geom_point(
-                    data = row_df,
-                    ggplot2::aes(x = x, y = y, size = contrib),
-                    colour = "#CB181D", fill = "white", shape = 21, stroke = 0.95
-                )
-            } else {
-                # Neither - default appearance
-                p <- p + ggplot2::geom_point(
-                    data = row_df,
-                    ggplot2::aes(x = x, y = y),
-                    colour = "#CB181D", fill = "white", shape = 21, size = dotSize, stroke = 0.95
-                )
+            if (showRowPoints) {
+                if (useQualityRows && useContribRows) {
+                    # Both quality (colour) and contribution (size)
+                    p <- p + ggplot2::geom_point(
+                        data = row_df,
+                        ggplot2::aes(x = x, y = y, fill = quality, size = contrib),
+                        colour = "#67000D", shape = 21, stroke = 0.6
+                    )
+                } else if (useQualityRows) {
+                    # Quality only (colour)
+                    p <- p + ggplot2::geom_point(
+                        data = row_df,
+                        ggplot2::aes(x = x, y = y, fill = quality),
+                        colour = "#67000D", shape = 21, size = dotSize, stroke = 0.6
+                    )
+                } else if (useContribRows) {
+                    # Contribution only (size)
+                    p <- p + ggplot2::geom_point(
+                        data = row_df,
+                        ggplot2::aes(x = x, y = y, size = contrib),
+                        colour = "#CB181D", fill = "white", shape = 21, stroke = 0.95
+                    )
+                } else {
+                    # Neither - default appearance
+                    p <- p + ggplot2::geom_point(
+                        data = row_df,
+                        ggplot2::aes(x = x, y = y),
+                        colour = "#CB181D", fill = "white", shape = 21, size = dotSize, stroke = 0.95
+                    )
+                }
             }
             
             # -----------------------------------------------------------------
-            # COLUMN POINTS
+            # COLUMN POINTS (only if visible)
             # -----------------------------------------------------------------
-            if (useQualityCols && useContribCols) {
-                # Both quality (colour) and contribution (size)
-                p <- p + ggplot2::geom_point(
-                    data = col_df,
-                    ggplot2::aes(x = x, y = y, colour = quality, size = contrib),
-                    shape = 17
-                )
-            } else if (useQualityCols) {
-                # Quality only (colour)
-                p <- p + ggplot2::geom_point(
-                    data = col_df,
-                    ggplot2::aes(x = x, y = y, colour = quality),
-                    shape = 17, size = dotSize
-                )
-            } else if (useContribCols) {
-                # Contribution only (size)
-                p <- p + ggplot2::geom_point(
-                    data = col_df,
-                    ggplot2::aes(x = x, y = y, size = contrib),
-                    colour = "#2171B5", shape = 17
-                )
-            } else {
-                # Neither - default appearance
-                p <- p + ggplot2::geom_point(
-                    data = col_df,
-                    ggplot2::aes(x = x, y = y),
-                    colour = "#2171B5", shape = 17, size = dotSize
-                )
+            if (showColPoints) {
+                if (useQualityCols && useContribCols) {
+                    # Both quality (colour) and contribution (size)
+                    p <- p + ggplot2::geom_point(
+                        data = col_df,
+                        ggplot2::aes(x = x, y = y, colour = quality, size = contrib),
+                        shape = 17
+                    )
+                } else if (useQualityCols) {
+                    # Quality only (colour)
+                    p <- p + ggplot2::geom_point(
+                        data = col_df,
+                        ggplot2::aes(x = x, y = y, colour = quality),
+                        shape = 17, size = dotSize
+                    )
+                } else if (useContribCols) {
+                    # Contribution only (size)
+                    p <- p + ggplot2::geom_point(
+                        data = col_df,
+                        ggplot2::aes(x = x, y = y, size = contrib),
+                        colour = "#2171B5", shape = 17
+                    )
+                } else {
+                    # Neither - default appearance
+                    p <- p + ggplot2::geom_point(
+                        data = col_df,
+                        ggplot2::aes(x = x, y = y),
+                        colour = "#2171B5", shape = 17, size = dotSize
+                    )
+                }
             }
             
             # -----------------------------------------------------------------
@@ -2855,30 +2866,39 @@ caClass <- if (requireNamespace('jmvcore', quietly = TRUE)) R6::R6Class(
             }
             
             # -----------------------------------------------------------------
-            # LABELS
+            # LABELS (only for visible point types)
             # -----------------------------------------------------------------
             row_df$label_colour <- "#CB181D"
             col_df$label_colour <- "#2171B5"
-            combined_labels <- rbind(
-                row_df[, c("x", "y", "label", "label_colour"), drop = FALSE],
-                col_df[, c("x", "y", "label", "label_colour"), drop = FALSE]
-            )
             
-            p <- p + ggrepel::geom_text_repel(
-                data = combined_labels,
-                ggplot2::aes(x = x, y = y, label = label),
-                colour = combined_labels$label_colour,
-                size = labelSize,
-                max.overlaps = 30,
-                box.padding = 0.4,
-                point.padding = 0.3,
-                force = 2,
-                force_pull = 0.3,
-                min.segment.length = 0.5,
-                segment.colour = "grey50",
-                segment.size = 0.4,
-                seed = 42
-            )
+            # Build combined labels only from visible point types
+            label_parts <- list()
+            if (showRowPoints) {
+                label_parts[[length(label_parts) + 1]] <- row_df[, c("x", "y", "label", "label_colour"), drop = FALSE]
+            }
+            if (showColPoints) {
+                label_parts[[length(label_parts) + 1]] <- col_df[, c("x", "y", "label", "label_colour"), drop = FALSE]
+            }
+            
+            if (length(label_parts) > 0) {
+                combined_labels <- do.call(rbind, label_parts)
+                
+                p <- p + ggrepel::geom_text_repel(
+                    data = combined_labels,
+                    ggplot2::aes(x = x, y = y, label = label),
+                    colour = combined_labels$label_colour,
+                    size = labelSize,
+                    max.overlaps = 30,
+                    box.padding = 0.4,
+                    point.padding = 0.3,
+                    force = 2,
+                    force_pull = 0.3,
+                    min.segment.length = 0.5,
+                    segment.colour = "grey50",
+                    segment.size = 0.4,
+                    seed = 42
+                )
+            }
             
             # -----------------------------------------------------------------
             # THEME
@@ -2906,17 +2926,28 @@ caClass <- if (requireNamespace('jmvcore', quietly = TRUE)) R6::R6Class(
             }
             
             # -----------------------------------------------------------------
-            # CAPTION
+            # CAPTION (dynamically reflects which points are shown)
             # -----------------------------------------------------------------
-            caption_text <- "Red (\u25cb) = Row categories; Blue (\u25b2) = Column categories"
+            if (showRowPoints && showColPoints) {
+                caption_text <- "Red (\u25cb) = Row categories; Blue (\u25b2) = Column categories"
+            } else if (showRowPoints) {
+                caption_text <- "Red (\u25cb) = Row categories"
+            } else {
+                caption_text <- "Blue (\u25b2) = Column categories"
+            }
             
             if (showClusters) {
-                cluster_desc <- switch(clusterTarget,
-                                       "rows" = "\nDashed red regions = Row clusters",
-                                       "cols" = "\nDotted blue regions = Column clusters",
-                                       "both" = "\nDashed red = Row clusters; Dotted blue = Column clusters"
-                )
-                caption_text <- paste0(caption_text, cluster_desc)
+                # Only mention clusters for visible point types
+                cluster_parts <- c()
+                if (showRowPoints && (clusterTarget == "rows" || clusterTarget == "both")) {
+                    cluster_parts <- c(cluster_parts, "Dashed red = Row clusters")
+                }
+                if (showColPoints && (clusterTarget == "cols" || clusterTarget == "both")) {
+                    cluster_parts <- c(cluster_parts, "Dotted blue = Column clusters")
+                }
+                if (length(cluster_parts) > 0) {
+                    caption_text <- paste0(caption_text, "\n", paste(cluster_parts, collapse = "; "))
+                }
             }
             
             p <- p + ggplot2::labs(caption = caption_text)

@@ -330,6 +330,22 @@ options:
           Adjust point transparency by quality of representation (cos²) on
           the displayed plane. Fully opaque points are well-represented;
           faded points have low quality and should be interpreted cautiously.
+          
+    - name: symmetricShowPoints
+      title: Show points
+      type: List
+      options:
+        - name: both
+          title: Rows and Columns
+        - name: rows
+          title: Rows only
+        - name: cols
+          title: Columns only
+      default: both
+      description: >
+          Which categories to display on the symmetric plot. 'Rows only' hides
+          column points and labels; 'Columns only' hides row points and labels.
+          Useful for reducing clutter in crowded plots.
 
     # ==========================================================================
     # GEOMETRIC INTERPRETATION PLOT

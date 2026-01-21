@@ -432,6 +432,7 @@ items:
         - symmetricClusterTarget
         - symmetricShowContrib
         - symmetricShowQuality
+        - symmetricShowPoints
         - clusterAlpha
         - distanceMetric
         - residualType
