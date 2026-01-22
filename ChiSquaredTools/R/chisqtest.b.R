@@ -110,9 +110,6 @@ chisqtestClass <- R6::R6Class(
       validityTable$addRow(rowKey = "n", values = list(
         diagnostic = "Sample size (N)", value = ".", threshold = ".", status = "."
       ))
-      validityTable$addRow(rowKey = "k", values = list(
-        diagnostic = "Number of cells (k)", value = ".", threshold = ".", status = "."
-      ))
       validityTable$addRow(rowKey = "lambda", values = list(
         diagnostic = "Average cell count (N/k)", value = ".", threshold = ".", status = "."
       ))
@@ -301,7 +298,6 @@ chisqtestClass <- R6::R6Class(
       
       # Evaluate each criterion
       n_ok <- n >= 10
-      k_ok <- k >= 3
       lambda_ok <- lambda >= 5
       sparsity_ok <- sparsity_index >= 10
       minexp_ok <- min_exp >= 1
@@ -317,13 +313,6 @@ chisqtestClass <- R6::R6Class(
         value = as.character(n),
         threshold = "\u2265 10",
         status = status_text(n_ok)
-      ))
-      
-      table$setRow(rowKey = "k", values = list(
-        diagnostic = "Number of cells (k)",
-        value = as.character(k),
-        threshold = "\u2265 3",
-        status = status_text(k_ok)
       ))
       
       table$setRow(rowKey = "lambda", values = list(
