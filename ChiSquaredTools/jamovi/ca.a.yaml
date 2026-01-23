@@ -146,7 +146,7 @@ options:
           and the dimension-defining categories.
 
     - name: showSRDTable
-      title: SRD clusters
+      title: Show clusters
       type: Bool
       default: false
       description: >
@@ -275,7 +275,7 @@ options:
           categories in principal coordinates.
 
     - name: symmetricShowClusters
-      title: Show SRD clusters
+      title: Show clusters
       type: Bool
       default: false
       description: >
@@ -415,7 +415,7 @@ options:
           relative to these dimensions.
 
     - name: contribShowClusters
-      title: Show SRD clusters
+      title: Show clusters
       type: Bool
       default: false
       description: >
@@ -474,11 +474,23 @@ options:
     # ==========================================================================
     # CLUSTERING OPTIONS
     # ==========================================================================
+    - name: clusterMethod
+      title: Clustering method
+      type: List
+      options:
+        - name: srd
+          title: SRD (Orton & Tyers)
+        - name: greenacre
+          title: Critical χ² (Greenacre)
+        - name: husson
+          title: Inertia gain ratio (Husson)
+      default: srd
+
     - name: clusterAlpha
-      title: Clustering α level
+      title: Significance level (α)
       type: Number
-      min: 0.01
-      max: 0.50
+      min: 0.001
+      max: 0.5
       default: 0.05
       description: >
           Significance level for distance-based clustering. Categories

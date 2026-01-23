@@ -30,6 +30,8 @@ caClass <- if (requireNamespace('jmvcore', quietly = TRUE)) R6::R6Class(
         .caResultAdj = NULL,
         .srdResultRows = NULL,
         .srdResultCols = NULL,
+        .clusterResultRows = NULL,
+        .clusterResultCols = NULL,
         
         # =====================================================================
         # INIT - Set up table structure to prevent flickering
@@ -272,9 +274,13 @@ caClass <- if (requireNamespace('jmvcore', quietly = TRUE)) R6::R6Class(
             private$.caResult <- private$.runCA(private$.contingencyTable)
             if (is.null(private$.caResult)) return()
             
-            # Run SRD clustering for both row and column categories
-            private$.srdResultRows <- private$.runSRDForVariable("rows")
-            private$.srdResultCols <- private$.runSRDForVariable("cols")
+            # Run clustering for both rows and columns (method determined by option)
+            private$.clusterResultRows <- private$.runClusteringForVariable("rows")
+            private$.clusterResultCols <- private$.runClusteringForVariable("cols")
+            
+            # Maintain backward compatibility aliases
+            private$.srdResultRows <- private$.clusterResultRows
+            private$.srdResultCols <- private$.clusterResultCols
             
             # Populate observed table first (always shown)
             private$.populateObservedTable()
@@ -665,28 +671,34 @@ caClass <- if (requireNamespace('jmvcore', quietly = TRUE)) R6::R6Class(
         },
         
         # =====================================================================
-        # SRD CLUSTERING FOR SPECIFIC VARIABLE
+        # CLUSTERING FOR SPECIFIC VARIABLE (dispatches to appropriate method)
         # =====================================================================
-        .runSRDForVariable = function(target) {
+        .runClusteringForVariable = function(target) {
             
             ca <- private$.caResult
+            method <- self$options$clusterMethod
             alpha <- self$options$clusterAlpha
             distance_type <- ca$distance_type
             
             # Get the target variable's data
             if (target == "rows") {
-                mat <- ca$N  # Rows as items, columns as variables
+                mat <- ca$N
                 names_target <- rownames(ca$N)
             } else {
-                mat <- t(ca$N)  # Columns as items, rows as variables
+                mat <- t(ca$N)
                 names_target <- colnames(ca$N)
             }
             
-            # Perform SRD clustering with appropriate distance metric
-            srd_result <- private$.performSRD(mat, alpha = alpha, distance_type = distance_type)
-            srd_result$names_target <- names_target
+            # Dispatch to appropriate clustering method
+            if (method == "srd") {
+                result <- private$.performSRD(mat, alpha = alpha, distance_type = distance_type)
+                result$method <- "srd"
+            } else {
+                result <- private$.performHierarchicalClustering(mat, method = method, distance_type = distance_type)
+            }
             
-            return(srd_result)
+            result$names_target <- names_target
+            return(result)
         },
         
         .performSRD = function(mat, alpha = 0.05, distance_type = "chisq") {
@@ -842,6 +854,508 @@ caClass <- if (requireNamespace('jmvcore', quietly = TRUE)) R6::R6Class(
             }
             
             list(groups = groups, merge_history = merge_history, singletons = singletons)
+        },
+        
+        # =====================================================================
+        # HIERARCHICAL CLUSTERING (Greenacre / Husson methods)
+        # =====================================================================
+        .performHierarchicalClustering = function(mat, method = "greenacre", distance_type = "chisq") {
+            # Performs hierarchical clustering using Ward's criterion
+            # Returns only final cluster membership (no dendrogram)
+            #
+            # mat: contingency table (rows = items to cluster, cols = variables)
+            # method: "greenacre" or "husson"
+            # distance_type: "chisq", "chisq_adj", or "hellinger"
+            
+            # Ensure mat is a proper matrix
+            if (!is.matrix(mat)) {
+                mat <- as.matrix(mat)
+            }
+            
+            n_items <- nrow(mat)
+            original_names <- rownames(mat)
+            if (is.null(original_names)) {
+                original_names <- paste0("R", seq_len(n_items))
+            }
+            
+            if (n_items < 2) {
+                return(list(
+                    groups = list(list(members = original_names, merge_stat = NA)),
+                    singletons = character(0),
+                    method = method
+                ))
+            }
+            
+            # Get table dimensions for critical value lookup (Greenacre method)
+            table_dims <- dim(mat)
+            critical_value <- NA
+            
+            if (method == "greenacre") {
+                critical_value <- tryCatch({
+                    private$.getCriticalChiSquare(table_dims[1], table_dims[2])
+                }, error = function(e) {
+                    NA
+                })
+                
+                if (is.na(critical_value)) {
+                    method <- "husson"
+                }
+            }
+            
+            # Helper function to compute the association statistic
+            # Based on distance_type: chi-squared or Freeman-Tukey (T²)
+            compute_statistic <- function(contingency_mat) {
+                if (nrow(contingency_mat) < 2 || ncol(contingency_mat) < 2) {
+                    return(0)
+                }
+                
+                n <- sum(contingency_mat)
+                if (n == 0) return(0)
+                
+                r <- rowSums(contingency_mat) / n
+                c <- colSums(contingency_mat) / n
+                P <- contingency_mat / n
+                
+                if (distance_type == "hellinger") {
+                    # Freeman-Tukey statistic: T² = n * Σ(2*(√p_ij - √(r_i*c_j)))²
+                    # This is the sum of squared Freeman-Tukey residuals times n
+                    stat <- 0
+                    for (i in seq_len(nrow(contingency_mat))) {
+                        for (j in seq_len(ncol(contingency_mat))) {
+                            ft_resid <- 2 * (sqrt(P[i, j]) - sqrt(r[i] * c[j]))
+                            stat <- stat + ft_resid^2
+                        }
+                    }
+                    stat <- n * stat
+                } else {
+                    # Pearson chi-squared statistic
+                    expected <- outer(r, c) * n
+                    stat <- sum((contingency_mat - expected)^2 / (expected + 1e-10))
+                }
+                
+                return(stat)
+            }
+            
+            # Calculate initial statistic
+            stat_init <- compute_statistic(mat)
+            
+            # Track merge statistics for Husson criterion
+            merge_stats <- data.frame(
+                step = 0:(n_items - 1),
+                statistic = numeric(n_items),
+                reduction = numeric(n_items),
+                stringsAsFactors = FALSE
+            )
+            merge_stats$statistic[1] <- stat_init
+            merge_stats$reduction[1] <- 0
+            
+            # Track cluster membership
+            cluster_membership <- as.list(original_names)
+            names(cluster_membership) <- original_names
+            cluster_merge_stat <- setNames(rep(NA_real_, length(original_names)), original_names)
+            
+            # Working copy of the matrix
+            current_mat <- mat
+            rownames(current_mat) <- original_names
+            current_labels <- original_names
+            prev_stat <- stat_init
+            
+            # For Greenacre: track the step where we should stop
+            greenacre_stop_step <- n_items - 1
+            
+            # Ward-style agglomerative clustering
+            for (i in 1:(n_items - 1)) {
+                n_current <- nrow(current_mat)
+                if (n_current < 2) break
+                
+                min_reduction <- Inf
+                best_pair <- c(NA, NA)
+                best_merged_mat <- NULL
+                best_merged_labels <- NULL
+                best_new_stat <- NULL
+                
+                # Try all possible pairs
+                pairs <- utils::combn(1:n_current, 2)
+                for (j in 1:ncol(pairs)) {
+                    idx1 <- pairs[1, j]
+                    idx2 <- pairs[2, j]
+                    
+                    # Merge the pair by summing rows
+                    merged_row <- current_mat[idx1, , drop = FALSE] + current_mat[idx2, , drop = FALSE]
+                    
+                    # Build new matrix without the merged rows
+                    keep_idx <- setdiff(1:n_current, c(idx1, idx2))
+                    if (length(keep_idx) > 0) {
+                        temp_mat <- rbind(current_mat[keep_idx, , drop = FALSE], merged_row)
+                    } else {
+                        temp_mat <- merged_row
+                    }
+                    
+                    merged_label <- paste0("(", current_labels[idx1], "+", current_labels[idx2], ")")
+                    temp_labels <- c(current_labels[keep_idx], merged_label)
+                    rownames(temp_mat) <- temp_labels
+                    
+                    # Calculate statistic using the appropriate method
+                    new_stat <- compute_statistic(temp_mat)
+                    
+                    reduction <- prev_stat - new_stat
+                    
+                    # Keep pair that minimises reduction (Ward criterion)
+                    if (reduction < min_reduction) {
+                        min_reduction <- reduction
+                        best_pair <- c(idx1, idx2)
+                        best_merged_mat <- temp_mat
+                        best_merged_labels <- temp_labels
+                        best_new_stat <- new_stat
+                    }
+                }
+                
+                if (is.na(best_pair[1])) break
+                
+                # Record merge statistics
+                merge_stats$statistic[i + 1] <- best_new_stat
+                merge_stats$reduction[i + 1] <- min_reduction
+                
+                # For Greenacre: check if this merge exceeds threshold
+                if (method == "greenacre" && !is.na(critical_value)) {
+                    if (min_reduction >= critical_value && greenacre_stop_step == n_items - 1) {
+                        greenacre_stop_step <- i - 1
+                    }
+                }
+                
+                # Update cluster membership
+                label1 <- current_labels[best_pair[1]]
+                label2 <- current_labels[best_pair[2]]
+                new_label <- paste0("(", label1, "+", label2, ")")
+                
+                members1 <- if (label1 %in% names(cluster_membership)) {
+                    cluster_membership[[label1]]
+                } else {
+                    unlist(strsplit(gsub("[()]", "", label1), "\\+"))
+                }
+                members2 <- if (label2 %in% names(cluster_membership)) {
+                    cluster_membership[[label2]]
+                } else {
+                    unlist(strsplit(gsub("[()]", "", label2), "\\+"))
+                }
+                
+                cluster_membership[[new_label]] <- c(members1, members2)
+                cluster_merge_stat[[new_label]] <- min_reduction
+                
+                # Update for next iteration
+                current_mat <- best_merged_mat
+                current_labels <- best_merged_labels
+                prev_stat <- best_new_stat
+            }
+            
+            # Determine optimal partition
+            if (method == "greenacre") {
+                optimal_step <- greenacre_stop_step
+            } else {
+                husson_result <- private$.findOptimalPartitionHusson(merge_stats)
+                optimal_step <- husson_result$optimal_step
+            }
+            
+            # Reconstruct clusters at optimal step
+            final_clusters <- private$.reconstructClustersAtStep(
+                original_names, mat, optimal_step, method, critical_value, distance_type
+            )
+            
+            final_clusters$method <- method
+            return(final_clusters)
+        },
+        
+        # ---------------------------------------------------------------------
+        # Find optimal partition using Husson's inertia gain ratio
+        # ---------------------------------------------------------------------
+        .findOptimalPartitionHusson = function(merge_stats, qmin = 2, qmax = NULL) {
+            n_items <- nrow(merge_stats)
+            n <- n_items - 1
+            
+            if (is.null(qmax)) {
+                qmax <- min(10, n)
+            }
+            
+            qmin <- max(2, qmin)
+            qmax <- min(qmax, n)
+            
+            if (qmax <= qmin) {
+                return(list(optimal_clusters = qmin, optimal_step = n - qmin))
+            }
+            
+            # Compute ratios for each candidate q
+            best_ratio <- Inf
+            best_q <- qmin
+            
+            for (q in qmax:(qmin + 1)) {
+                step_q <- n - q + 1
+                step_q_plus_1 <- n - q
+                
+                delta_q <- merge_stats$reduction[step_q + 1]
+                delta_q_plus_1 <- merge_stats$reduction[step_q_plus_1 + 1]
+                
+                if (delta_q_plus_1 > 0) {
+                    ratio <- delta_q / delta_q_plus_1
+                    if (ratio < best_ratio) {
+                        best_ratio <- ratio
+                        best_q <- q
+                    }
+                }
+            }
+            
+            list(optimal_clusters = best_q, optimal_step = n_items - best_q)
+        },
+        
+        # ---------------------------------------------------------------------
+        # Reconstruct cluster membership at a given step
+        # ---------------------------------------------------------------------
+        .reconstructClustersAtStep = function(original_names, mat, target_step, method, critical_value, distance_type = "chisq") {
+            
+            n_items <- length(original_names)
+            
+            if (target_step <= 0) {
+                return(list(
+                    groups = list(),
+                    singletons = original_names,
+                    method = method
+                ))
+            }
+            
+            # Ensure mat is a proper matrix
+            if (!is.matrix(mat)) {
+                mat <- as.matrix(mat)
+            }
+            
+            # Helper function to compute the association statistic
+            compute_statistic <- function(contingency_mat) {
+                if (nrow(contingency_mat) < 2 || ncol(contingency_mat) < 2) {
+                    return(0)
+                }
+                
+                n <- sum(contingency_mat)
+                if (n == 0) return(0)
+                
+                r <- rowSums(contingency_mat) / n
+                c <- colSums(contingency_mat) / n
+                P <- contingency_mat / n
+                
+                if (distance_type == "hellinger") {
+                    stat <- 0
+                    for (i in seq_len(nrow(contingency_mat))) {
+                        for (j in seq_len(ncol(contingency_mat))) {
+                            ft_resid <- 2 * (sqrt(P[i, j]) - sqrt(r[i] * c[j]))
+                            stat <- stat + ft_resid^2
+                        }
+                    }
+                    stat <- n * stat
+                } else {
+                    expected <- outer(r, c) * n
+                    stat <- sum((contingency_mat - expected)^2 / (expected + 1e-10))
+                }
+                
+                return(stat)
+            }
+            
+            # Replay merging up to target_step
+            cluster_membership <- as.list(original_names)
+            names(cluster_membership) <- original_names
+            cluster_merge_stat <- setNames(rep(NA_real_, length(original_names)), original_names)
+            
+            current_mat <- mat
+            rownames(current_mat) <- original_names
+            current_labels <- original_names
+            prev_stat <- compute_statistic(mat)
+            
+            for (i in 1:target_step) {
+                n_current <- nrow(current_mat)
+                if (n_current < 2) break
+                
+                min_reduction <- Inf
+                best_pair <- c(NA, NA)
+                best_merged_mat <- NULL
+                best_merged_labels <- NULL
+                best_new_stat <- NULL
+                
+                pairs <- utils::combn(1:n_current, 2)
+                for (j in 1:ncol(pairs)) {
+                    idx1 <- pairs[1, j]
+                    idx2 <- pairs[2, j]
+                    
+                    merged_row <- current_mat[idx1, , drop = FALSE] + current_mat[idx2, , drop = FALSE]
+                    
+                    keep_idx <- setdiff(1:n_current, c(idx1, idx2))
+                    if (length(keep_idx) > 0) {
+                        temp_mat <- rbind(current_mat[keep_idx, , drop = FALSE], merged_row)
+                    } else {
+                        temp_mat <- merged_row
+                    }
+                    
+                    merged_label <- paste0("(", current_labels[idx1], "+", current_labels[idx2], ")")
+                    temp_labels <- c(current_labels[keep_idx], merged_label)
+                    rownames(temp_mat) <- temp_labels
+                    
+                    new_stat <- compute_statistic(temp_mat)
+                    
+                    reduction <- prev_stat - new_stat
+                    
+                    if (reduction < min_reduction) {
+                        min_reduction <- reduction
+                        best_pair <- c(idx1, idx2)
+                        best_merged_mat <- temp_mat
+                        best_merged_labels <- temp_labels
+                        best_new_stat <- new_stat
+                    }
+                }
+                
+                if (is.na(best_pair[1])) break
+                
+                label1 <- current_labels[best_pair[1]]
+                label2 <- current_labels[best_pair[2]]
+                new_label <- paste0("(", label1, "+", label2, ")")
+                
+                members1 <- if (label1 %in% names(cluster_membership)) {
+                    cluster_membership[[label1]]
+                } else {
+                    unlist(strsplit(gsub("[()]", "", label1), "\\+"))
+                }
+                members2 <- if (label2 %in% names(cluster_membership)) {
+                    cluster_membership[[label2]]
+                } else {
+                    unlist(strsplit(gsub("[()]", "", label2), "\\+"))
+                }
+                
+                cluster_membership[[new_label]] <- c(members1, members2)
+                cluster_merge_stat[[new_label]] <- min_reduction
+                
+                current_mat <- best_merged_mat
+                current_labels <- best_merged_labels
+                prev_stat <- best_new_stat
+            }
+            
+            # Extract final groups from current_labels
+            groups <- list()
+            singletons <- character(0)
+            
+            for (lab in current_labels) {
+                members <- if (lab %in% names(cluster_membership)) {
+                    cluster_membership[[lab]]
+                } else {
+                    lab
+                }
+                merge_stat <- if (lab %in% names(cluster_merge_stat)) {
+                    cluster_merge_stat[[lab]]
+                } else {
+                    NA
+                }
+                
+                if (length(members) >= 2) {
+                    groups[[length(groups) + 1]] <- list(members = members, merge_stat = merge_stat)
+                } else {
+                    singletons <- c(singletons, members)
+                }
+            }
+            
+            list(groups = groups, singletons = singletons, method = method)
+        },
+        
+        # ---------------------------------------------------------------------
+        # Get critical chi-square value (Greenacre method)
+        # ---------------------------------------------------------------------
+        .getCriticalChiSquare = function(nrow, ncol) {
+            # Critical values from Pearson & Hartley (1972), Table 51
+            # at α = 0.05
+            
+            p <- min(nrow - 1, ncol - 1)
+            nu <- max(nrow - 1, ncol - 1)
+            
+            if (p < 2 || nu < 2) {
+                stop("Table too small for critical value lookup")
+            }
+            
+            if (p > 10 || nu > 100) {
+                stop("Table exceeds critical value lookup limits")
+            }
+            
+            # Sparse lookup table (key = "nu,p")
+            cv <- list(
+                "2,2" = 8.594, "3,2" = 10.74, "4,2" = 12.68, "5,2" = 14.49,
+                "6,2" = 16.21, "7,2" = 17.88, "8,2" = 19.49, "9,2" = 21.06,
+                "10,2" = 22.61, "11,2" = 24.12, "12,2" = 25.61,
+                "14,2" = 28.53, "19,2" = 35.59, "24,2" = 42.07, "29,2" = 48.27,
+                "39,2" = 60.02, "49,2" = 75.46, "59,2" = 87.66, "69,2" = 99.70,
+                "79,2" = 111.6, "89,2" = 123.4, "99,2" = 135.0,
+                "3,3" = 13.11, "4,3" = 15.24, "5,3" = 17.21, "6,3" = 19.09,
+                "7,3" = 20.88, "8,3" = 22.62, "9,3" = 24.31, "10,3" = 25.96,
+                "11,3" = 27.58, "12,3" = 29.17,
+                "14,3" = 32.27, "19,3" = 39.52, "24,3" = 46.27, "29,3" = 52.80,
+                "39,3" = 68.50, "49,3" = 81.44, "59,3" = 94.09, "69,3" = 106.5,
+                "79,3" = 118.8, "89,3" = 130.9, "99,3" = 143.0,
+                "4,4" = 17.52, "5,4" = 19.63, "6,4" = 21.62, "7,4" = 23.53,
+                "8,4" = 25.37, "9,4" = 27.15, "10,4" = 28.90, "11,4" = 30.60,
+                "12,4" = 32.27,
+                "14,4" = 35.52, "19,4" = 43.08, "24,4" = 50.27, "29,4" = 57.24,
+                "39,4" = 76.18, "49,4" = 89.73, "59,4" = 102.9, "69,4" = 115.9,
+                "79,4" = 128.6, "89,4" = 141.2, "99,4" = 153.6,
+                "5,5" = 21.85, "6,5" = 23.95, "7,5" = 25.96, "8,5" = 27.88,
+                "9,5" = 29.75, "10,5" = 31.57, "11,5" = 33.35, "12,5" = 35.09,
+                "14,5" = 38.57, "19,5" = 46.44, "24,5" = 53.95, "29,5" = 61.29,
+                "39,5" = 83.29, "49,5" = 102.9, "59,5" = 117.0, "69,5" = 130.9,
+                "79,5" = 144.4, "89,5" = 157.8, "99,5" = 170.9,
+                "6,6" = 26.14, "7,6" = 28.23, "8,6" = 30.24, "9,6" = 32.18,
+                "10,6" = 34.08, "11,6" = 35.93, "12,6" = 37.73,
+                "14,6" = 41.46, "19,6" = 49.64, "24,6" = 57.46, "29,6" = 65.12,
+                "39,6" = 88.29, "49,6" = 102.9, "59,6" = 117.0, "69,6" = 130.9,
+                "79,6" = 144.4, "89,6" = 157.8, "99,6" = 170.9,
+                "7,7" = 30.40, "8,7" = 32.48, "9,7" = 34.50, "10,7" = 36.45,
+                "11,7" = 38.36, "12,7" = 40.22,
+                "14,7" = 44.22, "19,7" = 52.70, "24,7" = 60.83, "29,7" = 68.77,
+                "39,7" = 91.57, "49,7" = 106.4, "59,7" = 120.8, "69,7" = 134.8,
+                "79,7" = 148.6, "89,7" = 162.1, "99,7" = 175.4,
+                "8,8" = 34.63, "9,8" = 36.70, "10,8" = 38.72, "11,8" = 40.69,
+                "12,8" = 42.60,
+                "14,8" = 46.86, "19,8" = 55.62, "24,8" = 64.04, "29,8" = 72.26,
+                "39,8" = 96.11, "49,8" = 111.2, "59,8" = 125.8, "69,8" = 140.1,
+                "79,8" = 154.0, "89,8" = 167.8, "99,8" = 181.3,
+                "9,9" = 38.84, "10,9" = 40.91, "11,9" = 42.93, "12,9" = 44.90,
+                "14,9" = 49.40, "19,9" = 58.43, "24,9" = 67.11, "29,9" = 75.60,
+                "39,9" = 99.43, "49,9" = 114.8, "59,9" = 129.6, "69,9" = 144.1,
+                "79,9" = 158.2, "89,9" = 172.1, "99,9" = 185.8,
+                "10,10" = 43.04, "11,10" = 45.10, "12,10" = 47.12,
+                "14,10" = 51.86, "19,10" = 61.14, "24,10" = 70.07, "29,10" = 78.81,
+                "39,10" = 102.6, "49,10" = 118.2, "59,10" = 133.3, "69,10" = 147.9,
+                "79,10" = 162.2, "89,10" = 176.3, "99,10" = 190.1
+            )
+            
+            key <- paste0(nu, ",", p)
+            if (key %in% names(cv)) {
+                return(cv[[key]])
+            }
+            
+            # Interpolate if exact value not available
+            available_nu <- as.integer(sapply(strsplit(
+                names(cv)[grepl(paste0(",", p, "$"), names(cv))], ","
+            ), `[`, 1))
+            available_nu <- sort(available_nu)
+            
+            if (length(available_nu) == 0) {
+                stop(paste0("No critical values available for p = ", p))
+            }
+            
+            lower_nu <- max(available_nu[available_nu <= nu], na.rm = TRUE)
+            upper_nu <- min(available_nu[available_nu >= nu], na.rm = TRUE)
+            
+            if (is.infinite(lower_nu) || is.infinite(upper_nu)) {
+                stop(paste0("Cannot interpolate for nu = ", nu, ", p = ", p))
+            }
+            
+            if (lower_nu == upper_nu) {
+                return(cv[[paste0(lower_nu, ",", p)]])
+            }
+            
+            lower_cv <- cv[[paste0(lower_nu, ",", p)]]
+            upper_cv <- cv[[paste0(upper_nu, ",", p)]]
+            
+            lower_cv + (upper_cv - lower_cv) * (nu - lower_nu) / (upper_nu - lower_nu)
         },
         
         # =====================================================================
@@ -1920,42 +2434,92 @@ caClass <- if (requireNamespace('jmvcore', quietly = TRUE)) R6::R6Class(
         },
         
         # =====================================================================
-        # POPULATE SRD TABLE - Reports clusters for BOTH rows and columns
+        # POPULATE CLUSTERS TABLE - Reports clusters for BOTH rows and columns
         # =====================================================================
         .populateSRDTable = function() {
-            ca <- private$.caResult
-            srd_rows <- private$.srdResultRows
-            srd_cols <- private$.srdResultCols
+            cluster_rows <- private$.clusterResultRows
+            cluster_cols <- private$.clusterResultCols
             table <- self$results$srdTable
             
             row_var <- self$options$rows
             col_var <- self$options$cols
+            
+            # Use actual method from results (may differ from option if Greenacre fell back to Husson)
+            method <- self$options$clusterMethod
+            if (!is.null(cluster_rows) && !is.null(cluster_rows$method)) {
+                method <- cluster_rows$method
+            } else if (!is.null(cluster_cols) && !is.null(cluster_cols$method)) {
+                method <- cluster_cols$method
+            }
+            
+            # Ensure method is valid
+            if (is.null(method) || !method %in% c("srd", "greenacre", "husson")) {
+                method <- "srd"
+            }
+            
+            # Determine column title and format based on method and distance metric
+            ca <- private$.caResult
+            is_hellinger <- !is.null(ca) && ca$distance_type == "hellinger"
+            
+            if (method == "srd") {
+                stat_col_title <- "Merge p"
+                stat_col_format <- "zto,pvalue"
+            } else {
+                # Use ΔT² for Freeman-Tukey, Δχ² for Pearson
+                stat_col_title <- if (is_hellinger) "\u0394T\u00b2" else "\u0394\u03c7\u00b2"
+                stat_col_format <- "zto"
+            }
+            
+            # Add the mergeStat column dynamically with appropriate title
+            table$addColumn(
+                name = "mergeStat",
+                title = stat_col_title,
+                type = "number",
+                format = stat_col_format
+            )
+            
+            # Set table title based on method
+            method_title <- if (method == "srd") {
+                "SRD Clusters (Orton & Tyers)"
+            } else if (method == "greenacre") {
+                "Clusters (Greenacre Critical \u03c7\u00b2)"
+            } else {
+                "Clusters (Husson Inertia Gain Ratio)"
+            }
+            table$setTitle(method_title)
             
             row_key <- 0
             
             # -----------------------------------------------------------------
             # Row clusters section
             # -----------------------------------------------------------------
-            if (!is.null(srd_rows) && length(srd_rows$groups) > 0) {
-                # Add header row for row clusters
+            if (!is.null(cluster_rows) && length(cluster_rows$groups) > 0) {
                 row_key <- row_key + 1
                 table$addRow(rowKey = row_key, values = list(
-                    cluster = "",
+                    cluster = NA,
                     members = paste0("Row variable: ", row_var),
                     nMembers = NA,
-                    mergePvalue = NA
+                    mergeStat = NA
                 ))
                 table$addFormat(rowKey = row_key, col = "members", 
                                 format = jmvcore::Cell.BEGIN_GROUP)
                 
-                for (i in seq_along(srd_rows$groups)) {
-                    group <- srd_rows$groups[[i]]
+                for (i in seq_along(cluster_rows$groups)) {
+                    group <- cluster_rows$groups[[i]]
                     row_key <- row_key + 1
+                    
+                    # Get the appropriate statistic
+                    stat_value <- if (method == "srd") {
+                        group$merge_p
+                    } else {
+                        group$merge_stat
+                    }
+                    
                     table$addRow(rowKey = row_key, values = list(
                         cluster = i,
                         members = paste(group$members, collapse = ", "),
                         nMembers = length(group$members),
-                        mergePvalue = group$merge_p
+                        mergeStat = stat_value
                     ))
                 }
             }
@@ -1963,26 +2527,32 @@ caClass <- if (requireNamespace('jmvcore', quietly = TRUE)) R6::R6Class(
             # -----------------------------------------------------------------
             # Column clusters section
             # -----------------------------------------------------------------
-            if (!is.null(srd_cols) && length(srd_cols$groups) > 0) {
-                # Add header row for column clusters
+            if (!is.null(cluster_cols) && length(cluster_cols$groups) > 0) {
                 row_key <- row_key + 1
                 table$addRow(rowKey = row_key, values = list(
-                    cluster = "",
+                    cluster = NA,
                     members = paste0("Column variable: ", col_var),
                     nMembers = NA,
-                    mergePvalue = NA
+                    mergeStat = NA
                 ))
                 table$addFormat(rowKey = row_key, col = "members", 
                                 format = jmvcore::Cell.BEGIN_GROUP)
                 
-                for (i in seq_along(srd_cols$groups)) {
-                    group <- srd_cols$groups[[i]]
+                for (i in seq_along(cluster_cols$groups)) {
+                    group <- cluster_cols$groups[[i]]
                     row_key <- row_key + 1
+                    
+                    stat_value <- if (method == "srd") {
+                        group$merge_p
+                    } else {
+                        group$merge_stat
+                    }
+                    
                     table$addRow(rowKey = row_key, values = list(
                         cluster = i,
                         members = paste(group$members, collapse = ", "),
                         nMembers = length(group$members),
-                        mergePvalue = group$merge_p
+                        mergeStat = stat_value
                     ))
                 }
             }
@@ -1995,46 +2565,81 @@ caClass <- if (requireNamespace('jmvcore', quietly = TRUE)) R6::R6Class(
                     cluster = NA,
                     members = "No clusters found (all categories are singletons)",
                     nMembers = NA,
-                    mergePvalue = NA
+                    mergeStat = NA
                 ))
             }
             
             # -----------------------------------------------------------------
             # Build explanatory note
             # -----------------------------------------------------------------
+            ca <- private$.caResult
             note_parts <- c()
             
             # Row singletons
-            if (!is.null(srd_rows) && length(srd_rows$singletons) > 0) {
+            if (!is.null(cluster_rows) && length(cluster_rows$singletons) > 0) {
                 note_parts <- c(note_parts, paste0(
                     "Row singletons: ", 
-                    paste(srd_rows$singletons, collapse = ", "),
-                    "."
+                    paste(cluster_rows$singletons, collapse = ", "), "."
                 ))
             }
             
             # Column singletons
-            if (!is.null(srd_cols) && length(srd_cols$singletons) > 0) {
+            if (!is.null(cluster_cols) && length(cluster_cols$singletons) > 0) {
                 note_parts <- c(note_parts, paste0(
                     "Column singletons: ", 
-                    paste(srd_cols$singletons, collapse = ", "),
-                    "."
+                    paste(cluster_cols$singletons, collapse = ", "), "."
                 ))
             }
             
-            distance_label <- if (ca$distance_type == "hellinger") {
+            # Method-specific explanation
+            distance_label <- if (!is.null(ca) && ca$distance_type == "hellinger") {
                 "Hellinger distance"
             } else {
                 "\u03c7\u00b2 distance"
             }
             
-            note_parts <- c(note_parts, paste0(
-                "Categories with statistically indistinguishable profiles (", 
-                distance_label, ", p > ",
-                self$options$clusterAlpha, ") are grouped together."
-            ))
+            # Statistic label depends on distance metric
+            stat_label <- if (is_hellinger) "T\u00b2" else "\u03c7\u00b2"
+            delta_stat_label <- if (is_hellinger) "\u0394T\u00b2" else "\u0394\u03c7\u00b2"
             
-            table$setNote('srdNote', paste(note_parts, collapse = " "))
+            method_note <- if (method == "srd") {
+                paste0(
+                    "SRD method: Categories with statistically indistinguishable profiles (", 
+                    distance_label, ", p > ", self$options$clusterAlpha, 
+                    ") are grouped together."
+                )
+            } else if (method == "greenacre") {
+                base_note <- paste0(
+                    "Greenacre method: Categories merged whilst ", stat_label, 
+                    " reduction < critical value (\u03b1 = 0.05). Statistic shows ", 
+                    delta_stat_label, " at final merge."
+                )
+                # Add caveat for Freeman-Tukey
+                if (is_hellinger) {
+                    paste0(base_note, 
+                           " Note: Critical values are derived for \u03c7\u00b2; application to T\u00b2 is approximate. ",
+                           "Consider SRD or Husson et al. methods.")
+                } else {
+                    base_note
+                }
+            } else {
+                paste0(
+                    "Husson method: Optimal partition found by minimising the inertia gain ratio. ",
+                    "Statistic shows ", delta_stat_label, " at final merge."
+                )
+            }
+            note_parts <- c(note_parts, method_note)
+            
+            # Check for Greenacre fallback
+            if (self$options$clusterMethod == "greenacre") {
+                if (!is.null(cluster_rows) && !is.null(cluster_rows$method) && cluster_rows$method == "husson") {
+                    note_parts <- c(note_parts, 
+                                    "Note: Table exceeds Greenacre critical value limits; Husson method used instead."
+                    )
+                }
+            }
+            
+            table$setNote('clusterNote', paste(note_parts, collapse = " "))
         },
         
         # =====================================================================
@@ -2357,51 +2962,154 @@ caClass <- if (requireNamespace('jmvcore', quietly = TRUE)) R6::R6Class(
             ")
             
             # -----------------------------------------------------------------
-            # Section 6: SRD Clustering
+            # Section 6: Clustering Methods
             # -----------------------------------------------------------------
             html <- paste0(html, "
-              <h3 style='color: #2874A6; margin-top: 1.5em;'>SRD Clustering</h3>
+              <h3 style='color: #2874A6; margin-top: 1.5em;'>Clustering Methods</h3>
               
-              <p>Simultaneous Reduction of Dimension (SRD; Orton & Tyers, 1991) is a hierarchical clustering 
-              technique based on the same distance metric used in CA. It groups categories whose profiles 
-              are statistically indistinguishable, reducing the complexity of sparse contingency tables.</p>
+              <p>This module offers three methods for identifying groups of categories with similar profiles. 
+              All methods cluster row categories separately from column categories, producing independent 
+              partitions for each. The methods differ in their stopping criteria and statistical philosophy.</p>
               
-              <p><strong>Purpose:</strong> SRD identifies which interpreted categories have statistically 
-              similar profiles and can therefore be considered equivalent in terms of their associations 
-              with the plane-defining variable. This is particularly useful for:</p>
-              <ul style='margin-left: 2em;'>
-                <li>Simplifying complex tables with many categories</li>
-                <li>Identifying substantive groupings among categories</li>
-                <li>Reducing noise from sampling variability in sparse tables</li>
-              </ul>
+              <p><strong>Clustering in plots:</strong> The Symmetric CA Plot can display clusters for rows, 
+              columns, or both (selectable via the 'Cluster target' option). The Contribution Biplot displays 
+              clusters for the <em>interpreted</em> variable only (i.e., the variable opposite to the one 
+              defining the plane). For example, if columns define the plane, row clusters are shown.</p>
               
-              <p><strong>Algorithm:</strong></p>
+              <h4 style='color: #5D6D7E; margin-top: 1em;'>Method 1: Simultaneous Reduction of Dimension (Orton & Tyers, 1991)",
+                           if (self$options$clusterMethod == "srd") " \u2014 <em>currently selected</em>" else "",
+                           "</h4>
+              
+              <p>SRD is a technique for simplifying contingency tables by systematically merging rows 
+              and/or columns that are statistically indistinguishable. Unlike conventional hierarchical 
+              clustering which merges greedily and cuts the tree post-hoc, SRD performs a significance 
+              test at each potential merge and only combines categories when their profiles cannot be 
+              distinguished at the specified significance level.</p>
+              
+              <p><strong>The algorithm:</strong></p>
               <ol style='margin-left: 2em;'>
-                <li>Calculate the weighted chi-squared distance between every pair of category profiles</li>
-                <li>Find the pair with the smallest weighted distance</li>
-                <li>Test whether this distance is statistically significant (using chi-squared test with 
-                k\u22121 degrees of freedom, where k is the number of columns in the profile)</li>
-                <li>If p > \u03b1, merge the pair and repeat from step 1</li>
-                <li>Stop when all remaining pairs have p \u2264 \u03b1</li>
+                <li>Calculate chi-squared distances between all pairs of row (or column) profiles.</li>
+                <li>Identify the closest pair (highest p-value when testing for profile differences).</li>
+                <li>If p > \u03b1, the pair cannot be distinguished\u2014merge them and return to step 1.</li>
+                <li>If p \u2264 \u03b1, the closest pair differs significantly\u2014stop.</li>
               </ol>
               
-              <p>The weighted distance formula is:</p>
+              <p><strong>Distance metric:</strong> SRD uses the chi-squared distance between profiles. 
+              For two rows <em>i</em> and <em>j</em>, the squared distance is:</p>
+              
               <p style='text-align: center; font-style: italic;'>
-                d\u00b2<sub>weighted</sub> = d\u00b2 \u00d7 (n<sub>i</sub> \u00d7 n<sub>j</sub>) / (n<sub>i</sub> + n<sub>j</sub>)
+                d\u00b2(i,j) = \u03a3<sub>k</sub> (p<sub>ik</sub> \u2212 p<sub>jk</sub>)\u00b2 / c<sub>k</sub>
               </p>
               
-              <p><strong>Interpretation:</strong> Categories within the same cluster have profiles that are 
-              not statistically distinguishable at the chosen \u03b1 level. Categories that remain as 
-              <em>singletons</em> (not merged with any others) have profiles that are statistically 
-              distinct from all other categories. In the biplot, clusters are shown as dashed convex 
-              hulls around their members when the 'Show SRD clusters' option is enabled.</p>
+              <p>This is converted to a chi-squared statistic by weighting:</p>
               
-              <p><strong>SRD Clusters Table:</strong> Lists each cluster with its member categories, 
-              number of members, and the p-value at which the final merge occurred. Clusters with 
-              high merge p-values contain categories with very similar profiles.</p>
+              <p style='text-align: center; font-style: italic;'>
+                \u03c7\u00b2 = d\u00b2 \u00d7 (n<sub>i</sub> \u00d7 n<sub>j</sub>) / (n<sub>i</sub> + n<sub>j</sub>)
+              </p>
+              
+              <p>Under the null hypothesis that rows <em>i</em> and <em>j</em> are samples from the same 
+              population, this statistic follows a chi-squared distribution with (k\u22121) degrees of freedom.</p>
+              
+              <p><strong>Interpretation:</strong> Categories in the same cluster have profiles that are 
+              statistically indistinguishable at the chosen \u03b1 level. The clustering is conservative\u2014only 
+              merging categories when there is insufficient evidence that they differ.</p>
+              
+              <p><strong>Freeman-Tukey variant:</strong> When Freeman-Tukey residuals are selected in 
+              Analysis Settings, SRD uses Hellinger distance instead of chi-squared distance. The test 
+              statistic remains asymptotically chi-squared distributed.</p>
               
               <p style='font-size: 0.85em; color: #666; margin-top: 8px; margin-bottom: 12px;'><em>See: 
-              Orton & Tyers 1991.</em></p>
+              Orton & Tyers 1991; Greenacre 1984.</em></p>
+              
+              <h4 style='color: #5D6D7E; margin-top: 1em;'>Method 2: Critical \u03c7\u00b2 (Greenacre, 2017)",
+                           if (self$options$clusterMethod == "greenacre") " \u2014 <em>currently selected</em>" else "",
+                           "</h4>
+              
+              <p>This method performs agglomerative hierarchical clustering using Ward's criterion 
+              (minimising the loss of \u03c7\u00b2 at each merge). The partition is determined by comparing 
+              each merge's \u03c7\u00b2 reduction against a critical threshold derived from the distribution 
+              of the largest characteristic root (Pearson & Hartley, 1972, Table 51).</p>
+              
+              <p><strong>Interpretation:</strong> Merging continues as long as the \u03c7\u00b2 reduction at each 
+              step remains below the critical value (\u03b1 = 0.05). When a merge would exceed this threshold, 
+              the algorithm stops\u2014this merge would combine categories whose profiles differ significantly.</p>
+              
+              <p><strong>Table size constraints:</strong> Critical values are only available for tables where 
+              min(rows, columns) \u2264 11 and max(rows, columns) \u2264 101. For larger tables, the module 
+              automatically uses the Husson method instead.</p>
+              
+              <p><strong>Note on Freeman-Tukey metric:</strong> When Freeman-Tukey residuals are selected, 
+              the clustering uses T\u00b2 (Freeman-Tukey statistic) instead of \u03c7\u00b2. Since the 
+              critical values in Pearson & Hartley (1972) are specifically derived for \u03c7\u00b2, 
+              their application to T\u00b2 is approximate. Both statistics are asymptotically 
+              \u03c7\u00b2-distributed, so the approximation is reasonable, but users requiring 
+              strict statistical validity should prefer the SRD method (which uses Hellinger distance 
+              directly in hypothesis tests) or the Husson method (which is purely data-driven and 
+              makes no distributional assumptions) when using Freeman-Tukey residuals.</p>
+              
+              <p style='font-size: 0.85em; color: #666; margin-top: 8px; margin-bottom: 12px;'><em>See: 
+              Greenacre 2017, Chapter 10; Pearson & Hartley 1972, Table 51.</em></p>
+              
+              <h4 style='color: #5D6D7E; margin-top: 1em;'>Method 3: Inertia Gain Ratio (Husson et al., 2017)",
+                           if (self$options$clusterMethod == "husson") " \u2014 <em>currently selected</em>" else "",
+                           "</h4>
+              
+              <p>This data-driven method builds a complete Ward hierarchy, then selects the optimal partition 
+              by finding the point where the relative gain in between-cluster inertia drops most sharply. 
+              The criterion minimises \u0394(q) / \u0394(q+1), where \u0394(q) is the inertia gain when going 
+              from q clusters to q\u22121.</p>
+              
+              <p><strong>Interpretation:</strong> The optimal partition captures the 'elbow' in the inertia 
+              curve\u2014the point where further merging yields diminishing returns. Unlike the other methods, 
+              this approach makes no formal significance claims; it identifies structure rather than 
+              testing hypotheses.</p>
+              
+              <p><strong>Table size:</strong> This method has no table size constraints and can be applied 
+              to contingency tables of any dimension.</p>
+              
+              <p style='font-size: 0.85em; color: #666; margin-top: 8px; margin-bottom: 12px;'><em>See: 
+              Husson et al. 2017, Chapter 3.</em></p>
+              
+              <h4 style='color: #5D6D7E; margin-top: 1em;'>Comparing the Methods</h4>
+              
+              <table style='border-collapse: collapse; margin: 1em 0; font-size: 0.9em;'>
+                <tr style='background-color: #f0f0f0;'>
+                  <th style='border: 1px solid #ccc; padding: 6px;'>Aspect</th>
+                  <th style='border: 1px solid #ccc; padding: 6px;'>SRD</th>
+                  <th style='border: 1px solid #ccc; padding: 6px;'>Greenacre</th>
+                  <th style='border: 1px solid #ccc; padding: 6px;'>Husson</th>
+                </tr>
+                <tr>
+                  <td style='border: 1px solid #ccc; padding: 6px;'>Stopping criterion</td>
+                  <td style='border: 1px solid #ccc; padding: 6px;'>p \u2264 \u03b1</td>
+                  <td style='border: 1px solid #ccc; padding: 6px;'>\u0394\u03c7\u00b2 \u2265 critical</td>
+                  <td style='border: 1px solid #ccc; padding: 6px;'>Min ratio</td>
+                </tr>
+                <tr>
+                  <td style='border: 1px solid #ccc; padding: 6px;'>Philosophy</td>
+                  <td style='border: 1px solid #ccc; padding: 6px;'>Hypothesis test</td>
+                  <td style='border: 1px solid #ccc; padding: 6px;'>Hypothesis test</td>
+                  <td style='border: 1px solid #ccc; padding: 6px;'>Data-driven</td>
+                </tr>
+                <tr>
+                  <td style='border: 1px solid #ccc; padding: 6px;'>Table limits</td>
+                  <td style='border: 1px solid #ccc; padding: 6px;'>None</td>
+                  <td style='border: 1px solid #ccc; padding: 6px;'>Yes</td>
+                  <td style='border: 1px solid #ccc; padding: 6px;'>None</td>
+                </tr>
+                <tr>
+                  <td style='border: 1px solid #ccc; padding: 6px;'>User parameter</td>
+                  <td style='border: 1px solid #ccc; padding: 6px;'>\u03b1 level</td>
+                  <td style='border: 1px solid #ccc; padding: 6px;'>None (fixed \u03b1=0.05)</td>
+                  <td style='border: 1px solid #ccc; padding: 6px;'>None</td>
+                </tr>
+              </table>
+              
+              <p><strong>Practical guidance:</strong> SRD is useful when you want direct control over the 
+              significance level and prefer a conservative approach. Greenacre's method provides a formal 
+              test but is limited to smaller tables. Husson's method is versatile and often suggests 
+              parsimonious solutions. When multiple methods are available, comparing their results can 
+              provide useful perspective on the robustness of the identified structure.</p>
             ")
             
             # -----------------------------------------------------------------
@@ -2939,11 +3647,20 @@ caClass <- if (requireNamespace('jmvcore', quietly = TRUE)) R6::R6Class(
             if (showClusters) {
                 # Only mention clusters for visible point types
                 cluster_parts <- c()
+                
+                # Get method label for caption
+                method <- self$options$clusterMethod
+                method_label <- switch(method,
+                                       srd = "SRD",
+                                       greenacre = "Greenacre",
+                                       husson = "Husson"
+                )
+                
                 if (showRowPoints && (clusterTarget == "rows" || clusterTarget == "both")) {
-                    cluster_parts <- c(cluster_parts, "Dashed red = Row clusters")
+                    cluster_parts <- c(cluster_parts, paste0("Dashed red = Row clusters (", method_label, ")"))
                 }
                 if (showColPoints && (clusterTarget == "cols" || clusterTarget == "both")) {
-                    cluster_parts <- c(cluster_parts, "Dotted blue = Column clusters")
+                    cluster_parts <- c(cluster_parts, paste0("Dotted blue = Column clusters (", method_label, ")"))
                 }
                 if (length(cluster_parts) > 0) {
                     caption_text <- paste0(caption_text, "\n", paste(cluster_parts, collapse = "; "))
@@ -3492,8 +4209,21 @@ caClass <- if (requireNamespace('jmvcore', quietly = TRUE)) R6::R6Class(
                 "Blue (\u25cf) = ", focus_label, " categories (solid = above-average contributor)\n",
                 "Red (\u25b2) = ", interp_label, " categories"
             )
-            if (showClusters && !is.null(srd) && length(srd$groups) > 0) {
-                caption_text <- paste0(caption_text, "\nDashed regions = SRD clusters")
+            if (showClusters) {
+                has_row_clusters <- !is.null(private$.clusterResultRows) && 
+                    length(private$.clusterResultRows$groups) > 0
+                has_col_clusters <- !is.null(private$.clusterResultCols) && 
+                    length(private$.clusterResultCols$groups) > 0
+                
+                if (has_row_clusters || has_col_clusters) {
+                    method <- self$options$clusterMethod
+                    method_label <- switch(method,
+                                           srd = "SRD",
+                                           greenacre = "Greenacre",
+                                           husson = "Husson"
+                    )
+                    caption_text <- paste0(caption_text, "\nDashed regions = ", method_label, " clusters")
+                }
             }
             
             p <- p + ggplot2::labs(caption = caption_text)

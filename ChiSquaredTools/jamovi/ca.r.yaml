@@ -334,12 +334,15 @@ items:
       columns: []
 
     # ==========================================================================
-    # SRD CLUSTERS TABLE
+    # CLUSTERS TABLE
     # ==========================================================================
     - name: srdTable
-      title: SRD Clusters
+      title: Clusters
       type: Table
-      refs: ortontyers1991
+      refs: 
+        - ortontyers1991
+        - greenacre2017
+        - hussonetal2017
       visible: (showSRDTable)
       clearWith:
         - rows
@@ -347,6 +350,7 @@ items:
         - counts
         - contribFocus
         - clusterAlpha
+        - clusterMethod
         - distanceMetric
         - residualType
       columns:
@@ -359,10 +363,6 @@ items:
         - name: nMembers
           title: n
           type: integer
-        - name: mergePvalue
-          title: 'Merge p'
-          type: number
-          format: zto,pvalue
 
     # ==========================================================================
     # SERIATED CONTINGENCY TABLE
@@ -434,6 +434,7 @@ items:
         - symmetricShowQuality
         - symmetricShowPoints
         - clusterAlpha
+        - clusterMethod
         - distanceMetric
         - residualType
 
@@ -494,6 +495,7 @@ items:
         - hideWeakContrib
         - contribShowClusters
         - clusterAlpha
+        - clusterMethod
         - distanceMetric
         - residualType
 

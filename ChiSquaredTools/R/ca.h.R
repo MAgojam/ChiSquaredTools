@@ -48,6 +48,7 @@ caOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
             equalScale = TRUE,
             dotSize = 2.5,
             labelSize = 3.5,
+            clusterMethod = "srd",
             clusterAlpha = 0.05,
             showOverdispersionPlot = FALSE,
             showMethodInfo = FALSE, ...) {
@@ -281,10 +282,18 @@ caOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
                 min=1,
                 max=8,
                 default=3.5)
+            private$..clusterMethod <- jmvcore::OptionList$new(
+                "clusterMethod",
+                clusterMethod,
+                options=list(
+                    "srd",
+                    "greenacre",
+                    "husson"),
+                default="srd")
             private$..clusterAlpha <- jmvcore::OptionNumber$new(
                 "clusterAlpha",
                 clusterAlpha,
-                min=0.01,
+                min=0.001,
                 max=0.5,
                 default=0.05)
             private$..showOverdispersionPlot <- jmvcore::OptionBool$new(
@@ -338,6 +347,7 @@ caOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
             self$.addOption(private$..equalScale)
             self$.addOption(private$..dotSize)
             self$.addOption(private$..labelSize)
+            self$.addOption(private$..clusterMethod)
             self$.addOption(private$..clusterAlpha)
             self$.addOption(private$..showOverdispersionPlot)
             self$.addOption(private$..showMethodInfo)
@@ -385,6 +395,7 @@ caOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
         equalScale = function() private$..equalScale$value,
         dotSize = function() private$..dotSize$value,
         labelSize = function() private$..labelSize$value,
+        clusterMethod = function() private$..clusterMethod$value,
         clusterAlpha = function() private$..clusterAlpha$value,
         showOverdispersionPlot = function() private$..showOverdispersionPlot$value,
         showMethodInfo = function() private$..showMethodInfo$value),
@@ -431,6 +442,7 @@ caOptions <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
         ..equalScale = NA,
         ..dotSize = NA,
         ..labelSize = NA,
+        ..clusterMethod = NA,
         ..clusterAlpha = NA,
         ..showOverdispersionPlot = NA,
         ..showMethodInfo = NA)
@@ -795,8 +807,11 @@ caResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
             self$add(jmvcore::Table$new(
                 options=options,
                 name="srdTable",
-                title="SRD Clusters",
-                refs="ortontyers1991",
+                title="Clusters",
+                refs=list(
+                    "ortontyers1991",
+                    "greenacre2017",
+                    "hussonetal2017"),
                 visible="(showSRDTable)",
                 clearWith=list(
                     "rows",
@@ -804,6 +819,7 @@ caResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
                     "counts",
                     "contribFocus",
                     "clusterAlpha",
+                    "clusterMethod",
                     "distanceMetric",
                     "residualType"),
                 columns=list(
@@ -818,12 +834,7 @@ caResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
                     list(
                         `name`="nMembers", 
                         `title`="n", 
-                        `type`="integer"),
-                    list(
-                        `name`="mergePvalue", 
-                        `title`="Merge p", 
-                        `type`="number", 
-                        `format`="zto,pvalue"))))
+                        `type`="integer"))))
             self$add(jmvcore::Table$new(
                 options=options,
                 name="seriatedTable",
@@ -882,6 +893,7 @@ caResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
                     "symmetricShowQuality",
                     "symmetricShowPoints",
                     "clusterAlpha",
+                    "clusterMethod",
                     "distanceMetric",
                     "residualType")))
             self$add(jmvcore::Image$new(
@@ -936,6 +948,7 @@ caResults <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
                     "hideWeakContrib",
                     "contribShowClusters",
                     "clusterAlpha",
+                    "clusterMethod",
                     "distanceMetric",
                     "residualType")))
             self$add(jmvcore::Image$new(
@@ -1112,6 +1125,7 @@ caBase <- if (requireNamespace("jmvcore", quietly=TRUE)) R6::R6Class(
 #' @param equalScale Use equal scaling on both axes.
 #' @param dotSize Size of points in the plots.
 #' @param labelSize Size of category labels.
+#' @param clusterMethod .
 #' @param clusterAlpha Significance level for distance-based clustering.
 #'   Categories with statistically indistinguishable profiles (p > alpha) are
 #'   grouped.
@@ -1197,6 +1211,7 @@ ca <- function(
     equalScale = TRUE,
     dotSize = 2.5,
     labelSize = 3.5,
+    clusterMethod = "srd",
     clusterAlpha = 0.05,
     showOverdispersionPlot = FALSE,
     showMethodInfo = FALSE) {
@@ -1260,6 +1275,7 @@ ca <- function(
         equalScale = equalScale,
         dotSize = dotSize,
         labelSize = labelSize,
+        clusterMethod = clusterMethod,
         clusterAlpha = clusterAlpha,
         showOverdispersionPlot = showOverdispersionPlot,
         showMethodInfo = showMethodInfo)
